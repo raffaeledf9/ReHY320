@@ -1,0 +1,53 @@
+# Signing keys. Never commit these: the app key lets anyone sign an update that
+# replaces the one on the projector, and the AVB key signs partition metadata.
+*.keystore
+*.jks
+keys/*.pem
+!keys/*.pub.pem
+
+# Working directory: firmware dumps, downloaded APKs, probation logs, device
+# pulls. Roughly 1.6 GB of it, none of it ours to publish and much of it a
+# record of one particular house's network.
+.scratch/
+
+# Build output.
+app/out/
+keyboard/out/
+*.apk
+*.idsig
+*.dex
+*.class
+
+# Partition images and other firmware blobs.
+*.img
+*.img.gz
+*.bin
+
+# Vendor tools fetched rather than written here.
+keys/avbtool
+
+# Python's own leavings.
+__pycache__/
+*.pyc
+
+# Editor and OS noise.
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
+
+# Signing keys, including the public halves: you generate your own, and a key
+# of mine in your tree can only cause confusion. See docs/EXTERNAL.md.
+keys/*
+!keys/README.md
+
+# The execution diary and the session handoff. Kept locally: they are the
+# author's record of doing this once, not something a reader needs to repeat
+# it. The reasoning lives in docs/research/ and docs/decisions/.
+RUNBOOK.md
+HANDOFF.md
+
+# The probation allow-list entries that belong to one house, not to this project:
+# the AirPlay sender, the video sources it is pointed at. Read alongside expected.txt
+# by both analyze.py and receiver.py when present.
+scripts/probation/expected.txt.local

@@ -1,0 +1,1584 @@
+[
+ {
+  "key": "router",
+  "research": {
+   "bottom_line": "The home router is end-of-life. Its last firmware is from 29 June 2020, and it has had no security fixes since. There is no Asuswrt-Merlin build for it, and no usable OpenWrt build: OpenWrt has no driver for the 5 GHz radio inside the BCM47189 chip.\n\n(a) Isolation. Stock firmware has no setting for \"this device may reach nothing on the LAN except AirPlay from the iPad\". The guest network's \"Access Intranet = Disable\" option is all-or-nothing. It blocks the guest from the whole main LAN at layer 2, and that also blocks mDNS.\n- Best free attempt: create one guest SSID on a single band (for example 5 GHz guest #1), set Access Intranet to Disable, and put both the projector and the iPad on it. Then test whether AirPlay works. Whether two guest clients can reach each other depends on the firmware version. On older pre-AiMesh firmware they could. Newer AiMesh-era firmware forces client isolation on the guest SSID (wlX.Y_ap_isolate=1).\n- If they are isolated: the manual shows Telnet is available, and a known workaround is `nvram set wl1.1_ap_isolate=0`, then `nvram commit`, then reboot. Saving the guest settings in the web page undoes it.\n- Side effect: with the projector on that guest SSID, the PC on the main LAN cannot reach ADB on port 5555. To install APKs over Wi-Fi, the PC would have to join the guest SSID for a while, which puts the PC next to the projector. Otherwise use the USB stick.\n\n(b) Monitoring. Stock firmware can log every new outgoing connection: set Firewall > General > \"Logged packets type\" to Accepted or Both. It records source and destination IP and port only. You get no hostnames, no payloads, and no DNS queries sent to the router. Send the log to the PC with the \"Remote log server\" setting (UDP 514). Give the projector a fixed address with a DHCP Manual Assignment (up to 32 entries) so its lines are easy to filter. Traffic Monitor shows totals per interface only, not per device. This model has no AiProtection, no Traffic Analyzer and no Adaptive QoS. Per-device controls are limited to:\n- Parental Controls time scheduling, with a per-MAC \"Block\" option that works as an internet kill switch\n- the Network Services Filter (a blacklist by source IP and destination port)\n- URL and keyword filters that apply to all devices\n\nThere is no DNS server setting per device. The DHCP DNS setting applies to every device. DNS-over-TLS needs ASUS firmware 386.4xxxx or later, so this router can never get it.\n\nCheapest add-ons, in order of preference:\n1. A GL.iNet OpenWrt travel router plugged into a LAN port of the ASUS. The Opal GL-SFT1200 costs about €41 but has no AdGuard Home; the Beryl AX GL-MT3000 costs about $87–99 and has AdGuard Home. Put the projector and the iPad on its Wi-Fi so AirPlay works. Add one firewall rule dropping traffic from its LAN to 192.168.1.0/24. Optionally forward port 5555 from its WAN side to the projector, so the PC can reach the projector but not the other way round. This covers both (a) and (b), including DNS logs per device on models that support AdGuard Home.\n2. Free, for probation only: Windows Mobile Hotspot plus the built-in pktmon, whose capture converts to pcapng for Wireshark. Downside: the projector sits next to the PC at 192.168.137.1. Run short sessions, keep the hotspot on the Public firewall profile, and keep file sharing off.\n3. Pi-hole: DNS visibility only. It needs extra hardware or Docker, does not isolate anything, and hardcoded DNS or DNS-over-HTTPS in an app bypasses it.\n\nBecause the router itself is unpatched since 2020, also turn off UPnP, port forwarding and WAN web access, and plan to replace it eventually.",
+   "findings": [
+    {
+     "claim": "The home router is end-of-life. Its newest firmware is dated 29 June 2020, and no security updates will follow.",
+     "confidence": "high",
+     "detail": "The ASUS support page lists the last firmware (2020/06/29) as the newest release. It fixed CVE-2020-12695 (CallStranger), an XSS, a directory traversal and CVE-2017-15653. The same page carries an EOL banner: firmware, utilities and the manual will no longer be updated. The ASUS EOL list includes the home router and names RT-BE50, RT-BE55, RT-BE58U V2 and ZenWiFi BD4/BD5 as replacements. Anything found after mid-2020 is unpatched on this router.",
+     "sources": [
+      "router-specific source removed",
+      "https://www.asus.com/event/network/eol-product/"
+     ]
+    },
+    {
+     "claim": "No Asuswrt-Merlin build exists, and OpenWrt is not practical: the router uses a BCM47189 (BCM53573 family) chip, and its 5 GHz 802.11ac radio has no Linux driver.",
+     "confidence": "high",
+     "detail": "The Merlin site lists only RT-AX/BE models as supported, plus older RT-AC models as dropped, and the home router is in neither list. On openwrt-devel in November 2022, Arınç ÜNAL wrote that the 802.11ac PHY is in the BCM47189 SoC and has no support, and offered only a 2.4 GHz test image. On the OpenWrt forum, tmomas notes the G+/GP (BCM47189) and the GU (MT7621) are different devices, so RT-AC57U/GU images will not work. I found no newer source showing 5 GHz support.",
+     "sources": [
+      "https://www.asuswrt-merlin.net/",
+      "https://lists.openwrt.org/pipermail/openwrt-devel/2022-November/039826.html",
+      "router-specific source removed"
+     ]
+    },
+    {
+     "claim": "The router has guest networks: up to 3 SSIDs per band (6 in total), each with an access time limit and an Access Intranet Enable/Disable setting.",
+     "confidence": "high",
+     "detail": "From the router's manual (Spanish edition, pp. 26–27): guest SSIDs, authentication and encryption, an access time or 'Limitless', and 'Acceder a la intranet' Enable/Disable. ASUS's general FAQ says Access Intranet only works in wireless router mode. On firmware of this era, guest SSIDs share the main subnet; isolation is done with firewall/ebtables rules rather than a separate IP range.",
+     "sources": [
+      "router-specific source removed",
+      "https://www.asus.com/support/faq/1009857",
+      "https://www.snbforums.com/threads/how-do-i-isolate-clients-on-guest-wifi.31447/"
+     ]
+    },
+    {
+     "claim": "Access Intranet = Disable blocks the guest from the whole main LAN at layer 2, including mDNS/Bonjour. There is no way to make an exception for one device in the web interface, so AirPlay between a guest device and a main-LAN device will not work.",
+     "confidence": "medium",
+     "detail": "eibgrad on SNBForums: guests share the private network, so there is no practical way to allow some devices and not others, and ASUS makes it all-or-nothing. On Merlin (RT-AC56U), medo64 had to add per-MAC ebtables FORWARD exceptions, plus ARP, to let a guest Chromecast talk to the main LAN, which shows the default drops all guest-to-LAN bridged frames. The UxPlay README says client/AP isolation on a guest network can block AirPlay discovery. I did not see the ebtables rules on this exact model; this is inferred from same-generation ASUSWRT.",
+     "sources": [
+      "https://www.snbforums.com/threads/how-to-let-devices-see-each-other-in-guest-network.71540/",
+      "https://medo64.com/posts/chromecast-in-isolated-guest-network",
+      "https://github.com/FDH2/UxPlay"
+     ]
+    },
+    {
+     "claim": "Whether two clients on the same guest SSID can talk to each other depends on the firmware version. For the home router it has to be tested.",
+     "confidence": "medium",
+     "detail": "Old firmware (RT-AC68U on 378.55 and 380.64): with Access Intranet = No, guest clients could still reach each other. RMerlin said AP isolation was then a per-radio setting, not per guest network. Newer AiMesh-era web code, quoted by john9527, sets wl_ap_isolate=1 when guest LAN access is off, but only if amesh_support && amesh_wgn_support. On RT-AC86U, ColinTaylor and the original poster report guest clients isolated from each other, and enabling Access Intranet is the only way in the web page to lift that. I could not find whether the home router supports AiMesh; ASUS's AiMesh FAQ only points to product pages. Two guest SSIDs, such as wl0.1 and wl1.1, are separate interfaces, so the projector and the iPad must join the same guest SSID on the same band.",
+     "sources": [
+      "https://www.snbforums.com/threads/how-do-i-isolate-clients-on-guest-wifi.31447/",
+      "https://www.snbforums.com/threads/rt-ac88u-ap-isolation-keeps-activating.75335/",
+      "https://www.snbforums.com/threads/asus-rt-ac86u-guest-network-isolation-between-clients.78835/",
+      "https://www.asus.com/support/faq/1035087/"
+     ]
+    },
+    {
+     "claim": "If guest clients turn out to be isolated, a command-line workaround can let them talk while keeping them off the main LAN: `nvram set wlX.Y_ap_isolate=0`, then `nvram commit`, then reboot. Saving guest settings in the web page reverts it.",
+     "confidence": "medium",
+     "detail": "eibgrad posted the commands for Merlin/RT-AC68U-era routers and warned that wireless config changes will likely undo it; two users confirmed it worked on Merlin. JWoo (RT-BE92U) also says saving guest settings resets the value to 1. The router's manual (p. 73) lists a Telnet enable option under Administration > System; SSH is not mentioned in that 2016 manual. Not verified on the last stock firmware for this model. This is the only stock-firmware route to 'projector + iPad on one segment, PC off it'.",
+     "sources": [
+      "https://www.snbforums.com/threads/allow-guest-network-devices-to-access-each-other.79446/",
+      "https://www.snbforums.com/threads/how-to-let-devices-see-each-other-in-guest-network.71540/",
+      "router-specific source removed"
+     ]
+    },
+    {
+     "claim": "Wireless > Professional has a 'Set AP Isolated' option, but it applies to a whole radio, not to one device or one SSID, so it cannot carve out the projector.",
+     "confidence": "high",
+     "detail": "The manual (p. 50) says AP Isolated stops wireless clients from communicating with each other. RMerlin says the AP isolation option is only global, not per guest network. ASUS's own FAQ suggests it for blocking guests from wireless LAN devices, but it would also break AirPlay between the iPad and the projector.",
+     "sources": [
+      "router-specific source removed",
+      "https://www.snbforums.com/threads/how-do-i-isolate-clients-on-guest-wifi.31447/",
+      "https://www.asus.com/support/faq/1009857"
+     ]
+    },
+    {
+     "claim": "The firewall can log every new outgoing connection ('Logged packets type' set to Dropped, Accepted or Both). This is the main monitoring tool on stock firmware.",
+     "confidence": "high",
+     "detail": "Manual p. 68: Firewall > General has Enable Firewall, Enable DoS protection, and 'Logged packets type' (Dropped/Accepted/Both) for traffic between LAN and WAN. Merlin legacy firewall.c, which shares code with stock: when fw_log_x is accept or both, LAN forward rules use the 'logaccept' chain, which logs the first packet of each new connection with prefix 'ACCEPT ' before accepting it. Guest SSIDs are bridged into br0 on this firmware, so their traffic is logged too. Limits: IP and port only, no hostnames or payload, and DNS queries to the router are not logged. The log covers the whole household, so filter by the projector's fixed IP.",
+     "sources": [
+      "router-specific source removed",
+      "https://raw.githubusercontent.com/RMerl/asuswrt-merlin/master/release/src/router/rc/firewall.c"
+     ]
+    },
+    {
+     "claim": "The system log can be sent to a remote syslog server (default UDP 514), such as the Windows PC, for logs that last through the probation period.",
+     "confidence": "medium",
+     "detail": "ASUS FAQ 1044954 describes the 'Remote log server' field (default port 514) and exporting syslog.txt. It does not give the exact menu on this model; a third-party guide places it under Administration > System. The router's 2016 manual's System page does not mention it, so it may only exist on newer 382 firmware; check in the web interface. The manual (p. 75) says the local log is cleared on reboot, while the FAQ (newer firmware) says it is kept, so assume it can be lost.",
+     "sources": [
+      "https://www.asus.com/support/faq/1044954/",
+      "https://cybersecurity.att.com/documentation/usm-appliance/supported-plugins/configuring-asustek-router.htm",
+      "router-specific source removed"
+     ]
+    },
+    {
+     "claim": "This model has no AiProtection, no Adaptive QoS and no Traffic Analyzer. Traffic Monitor shows totals per interface (WAN, wired, wireless), not per device.",
+     "confidence": "medium",
+     "detail": "The Blacktubi review of the home router says it has SmartQoS, with no Adaptive QoS and no AiProtection, plus parental control, guest network and a VPN client. The manual contents list 'Traffic Manager' with QoS and Traffic Monitor (p. 31: bandwidth for wired and wireless, daily view). ASUS's Traffic Monitor FAQ describes incoming and outgoing graphs for Internet, wired and wireless only. I found no per-device statistics page for this model.",
+     "sources": [
+      "router-specific source removed",
+      "router-specific source removed",
+      "router-specific source removed",
+      "https://www.asus.com/support/FAQ/114483"
+     ]
+    },
+    {
+     "claim": "Per-device controls available: Parental Controls time scheduling, a per-MAC 'Block' that works as an internet kill switch, and the Network Services Filter (blacklist or whitelist by source IP, destination port and schedule). The URL and keyword filters apply to everyone and are trivially bypassed.",
+     "confidence": "medium",
+     "detail": "The manual covers Parental Control (p. 32), Network Services Filter (pp. 70–71), URL filter and keyword filter (p. 69). The URL filter works through DNS; the keyword filter only matches page content, so neither sees much on HTTPS. ASUS FAQ: Time Scheduling picks clients by MAC and sets Disable, Time or Block per client. ASUS Network Services Filter FAQ: it blocks LAN-to-WAN packets; whitelist mode cuts internet for everyone not on the list during the schedule, so blacklist mode is the one usable for a single device. All of these filter only LAN-to-WAN traffic; none blocks LAN-to-LAN traffic. Android 11 MAC randomization could defeat MAC-based rules unless it is turned off for this SSID on the projector.",
+     "sources": [
+      "router-specific source removed",
+      "https://www.asus.com/support/FAQ/1008720/",
+      "https://www.asus.com/support/FAQ/1013636"
+     ]
+    },
+    {
+     "claim": "DHCP fixed-address leases exist (Manual Assignment, up to 32 MAC-to-IP entries). The DHCP DNS server setting applies to all devices, with no per-device DNS, and there is no DNS-over-TLS.",
+     "confidence": "medium",
+     "detail": "Manual p. 53: Enable Manual Assignment binds IPs to MACs, up to 32 entries, and there is one DNS server / WINS field. ASUS DHCP FAQ: the DNS field applies to all clients, and leaving it blank sends DNS to the router. ASUS DoT FAQ: DNS-over-TLS is only supported on firmware newer than 3.0.0.4.386.4xxxx, and this model stops at 382. For DNS per device, set a static IP and DNS on the projector itself (works only once the device is trustworthy) or use an add-on.",
+     "sources": [
+      "router-specific source removed",
+      "https://asus.com/support/faq/1011703",
+      "https://www.asus.com/support/faq/1051428/"
+     ]
+    },
+    {
+     "claim": "AirPlay (UxPlay, which the AirPlay Server app is built on) needs the iPad and the receiver on the same local network with mDNS on UDP 5353 working. Any isolation scheme must therefore keep the iPad on the projector's network segment.",
+     "confidence": "high",
+     "detail": "UxPlay README: server and client must be on the same LAN; the service is announced via mDNS on UDP 5353; ports are random unless -p is used, which sets the legacy ports TCP 7100/7000/7001 and UDP 6000/6001/7011; guest-network client/AP isolation can block discovery. It also mentions a Bluetooth LE beacon alternative for networks without mDNS; I did not check whether the Android app supports it.",
+     "sources": [
+      "https://github.com/FDH2/UxPlay"
+     ]
+    },
+    {
+     "claim": "Recommended add-on: a GL.iNet OpenWrt travel router plugged into a LAN port of the ASUS, with the projector and the iPad on its Wi-Fi. One firewall rule (drop traffic from its LAN to 192.168.1.0/24) keeps both off the main LAN while internet still works.",
+     "confidence": "medium",
+     "detail": "On the OpenWrt forum, psherman recommends a rule that drops all traffic from the lan zone to 192.168.1.0/24; internet still works because the router itself reaches the upstream gateway. AirPlay works because the iPad and the projector share the GL network. For APK installs from the PC, a port forward of TCP 5555 from the GL's WAN side to the projector lets the PC reach the projector while the projector still cannot reach the PC; this follows from how NAT and that rule behave, and I have not tested it. Double NAT is normally fine for Netflix. AdGuard Home with DNS logs is supported on the GL-MT3000 Beryl AX, GL-A1300, GL-AXT1800 and others, but not on the GL-SFT1200 Opal or GL-MT300N-V2. To get logs per client, AdGuard Home must handle client DNS requests directly ('AdGuard Home Handle Client Requests'); with that option off, forum users report every query shows as localhost. Prices: Beryl AX about $86.90–98.99 (US store) or €101.99 (EU); Opal about €41 (EU). I did not verify that tcpdump installs on GL firmware.",
+     "sources": [
+      "https://forum.openwrt.org/t/how-to-isolate-my-openwrt-lan-from-my-actual-lan/136443",
+      "https://docs.gl-inet.com/router/en/4/interface_guide/adguardhome/",
+      "https://forum.gl-inet.com/t/gl-mv1000-with-adguard-all-clients-show-as-localhost/13664",
+      "https://store-us.gl-inet.com/collections/travel-routers",
+      "https://store-eu.gl-inet.com/collections/best-seller"
+     ]
+    },
+    {
+     "claim": "Free option for the probation period only: Windows Mobile Hotspot plus the built-in pktmon gives a full packet capture viewable in Wireshark. The cost is that the projector sits directly next to the PC.",
+     "confidence": "medium",
+     "detail": "Microsoft Learn: pktmon is built into Windows from build 19041 and supports Wi-Fi capture and pcapng; 'pktmon etl2pcap <file> --out <name>' converts the capture for Wireshark. Hotspot clients get 192.168.137.x and the PC is 192.168.137.1. A tutorial says hotspot traffic falls under the Public firewall profile. Risk: any service listening on the PC (SMB, RPC, dev servers) is one hop from an untrusted device. Keep sessions short, keep the Public profile, turn off file sharing, and disconnect afterwards. This also does not test AirPlay unless the iPad joins the hotspot too; I did not verify whether hotspot clients can reach each other.",
+     "sources": [
+      "https://learn.microsoft.com/en-us/windows-server/networking/technologies/pktmon/pktmon",
+      "https://learn.microsoft.com/en-us/windows-server/networking/technologies/pktmon/pktmon-pcapng-support",
+      "https://us.informatiweb.net/tutorials/it/windows/windows-10-create-a-mobile-hotspot-wi-fi--2.html",
+      "https://en.wikipedia.org/wiki/Internet_Connection_Sharing"
+     ]
+    },
+    {
+     "claim": "Pi-hole gives DNS visibility only: no isolation, extra hardware or Docker needed, and easy to bypass. AdGuard Home on a supported GL.iNet model does the same job and also isolates.",
+     "confidence": "medium",
+     "detail": "On this ASUS the DHCP DNS setting applies to all devices (manual p. 53), so a Pi-hole would cover the whole household unless DNS is set statically on the projector. An app with hardcoded DNS or DNS-over-HTTPS skips it. The GL.iNet AdGuard Home documentation covers the equivalent feature built into the router.",
+     "sources": [
+      "router-specific source removed",
+      "https://docs.gl-inet.com/router/en/4/interface_guide/adguardhome/"
+     ]
+    },
+    {
+     "claim": "Hardening for the unpatched router: turn off UPnP, port forwarding and port triggering, so the projector cannot open inbound ports on its own, and keep web access from WAN disabled.",
+     "confidence": "medium",
+     "detail": "ASUS FAQ: WAN > Internet Connection > Enable UPnP = No, and it recommends turning off UPnP, Port Trigger and Port Forwarding together. Manual p. 73: web access from WAN is a toggle under Administration > System.",
+     "sources": [
+      "https://www.asus.com/support/FAQ/1045028",
+      "router-specific source removed"
+     ]
+    }
+   ],
+   "open_questions": [
+    "On the last firmware, does setting a guest SSID to Access Intranet = Disable force client isolation (wlX.Y_ap_isolate=1)? Test: put the iPad and the projector on the same 5 GHz guest SSID and try AirPlay or a ping.",
+    "Does the home router support AiMesh? Not found on ASUS pages. It decides which guest-isolation code path applies.",
+    "Does the last stock firmware have SSH as well as Telnet, and does it have the Remote log server field? The 2016 manual shows Telnet only and does not mention remote syslog; check the Administration > System and System Log pages.",
+    "Can tcpdump be installed on GL.iNet stock firmware (Beryl AX / Opal), or does that need vanilla OpenWrt? Not verified.",
+    "Can clients of a Windows Mobile Hotspot reach each other? This matters only if AirPlay is to be tested while on the hotspot. Not verified.",
+    "Does the io.github.jqssun.airplay Android app support UxPlay's Bluetooth LE discovery beacon, which would allow AirPlay without mDNS on the same segment? Not checked."
+   ]
+  },
+  "verify": {
+   "checks": [
+    {
+     "claim": "The home router is end-of-life. Its last firmware is from 2020-06-29, and no security fixes will follow.",
+     "verdict": "confirmed",
+     "note": "The ASUS support page lists the last firmware (2020/06/29) as the newest build, with fixes for CallStranger, an XSS, a directory traversal and CVE-2017-15653. The page carries the EOL banner. The ASUS EOL list includes the home router and names RT-BE50, RT-BE55, RT-BE58U V2 and ZenWiFi BD4/BD5 as replacements. An NVD-derived CPE string 'home router firmware 3.0.0.4.386.46061' exists, but it comes from a vulnerability database entry for an RT-AC88U XSS bug, not from a real release. ASUS lists no 386 build for this model.",
+     "sources": [
+      "router-specific source removed",
+      "https://www.asus.com/event/network/eol-product/",
+      "https://cpe.gcve.eu/cpes/904034"
+     ]
+    },
+    {
+     "claim": "No Asuswrt-Merlin build exists, and OpenWrt is not practical: the 5 GHz 802.11ac radio inside the BCM47189 has no driver.",
+     "verdict": "confirmed",
+     "note": "The Merlin site does not list the home router, as supported or as dropped. Arınç ÜNAL (openwrt-devel, Nov 2022) says the 802.11ac PHY inside the BCM47189 has no support and offers only a 2.4 GHz test image. tmomas confirms the G+/GP (BCM47189) and the GU (MT7621) are different devices. OpenWrt's unsupported-features page marks BCM53xx WLAN as unsupported. Tenda AC9 owners, whose router uses the same SoC family, report no 5 GHz support either. I found nothing newer that adds 5 GHz.",
+     "sources": [
+      "https://www.asuswrt-merlin.net/",
+      "https://lists.openwrt.org/pipermail/openwrt-devel/2022-November/039826.html",
+      "router-specific source removed",
+      "https://openwrt.org/unsupported/unsupported_features",
+      "https://forum.openwrt.org/t/installing-lede-on-a-tenda-ac9/727"
+     ]
+    },
+    {
+     "claim": "Guest networks: up to 3 SSIDs per band (6 in total), each with an access time limit and Access Intranet Enable/Disable. Guests share the main subnet, and isolation is done with ebtables.",
+     "verdict": "confirmed",
+     "note": "Manual p.26 states 'hasta seis SSID (tres SSID de 2,4 GHz y tres SSID de 5 GHz)'. p.27 covers the access time limit (or unlimited) and the intranet on/off switch. The ASUS FAQ says Access Intranet only works in wireless router mode. Legacy ASUSWRT source (rc/lan.c, lanaccess_wl) walks lan_ifnames, the guest interfaces that sit in the LAN bridge, and applies ebtables rules. NGRhodes on SNBForums: 'AsusWRT does not use separate IP ranges for guests'.",
+     "sources": [
+      "router-specific source removed",
+      "router-specific source removed",
+      "https://www.asus.com/support/faq/1009857",
+      "https://raw.githubusercontent.com/RMerl/asuswrt-merlin/master/release/src/router/rc/lan.c",
+      "https://www.snbforums.com/threads/how-do-i-isolate-clients-on-guest-wifi.31447/"
+     ]
+    },
+    {
+     "claim": "Access Intranet = Disable blocks the guest from the whole main LAN at layer 2, mDNS included. The web interface has no way to make an exception for one device, so AirPlay between a guest device and a main-LAN device will not work.",
+     "verdict": "confirmed",
+     "note": "The research marked this as inferred, but the source code supports it. In legacy ASUSWRT rc/lan.c, lanaccess_mssid_ban() runs 'ebtables -A FORWARD -i <guest_if> -j DROP' and the matching '-o' rule, plus a broute rule for TCP to the LAN subnet. These drop every bridged frame between a guest SSID and the rest of br0, multicast mDNS and ARP included. They also block traffic between two different guest SSIDs, such as wl0.1 and wl1.1. medo64 had to add per-MAC ebtables exceptions plus ARP, which matches this. Caveat: the code is from the Merlin legacy tree, which shares code with stock 380/382. I could not inspect this model's own GPL build.",
+     "sources": [
+      "https://raw.githubusercontent.com/RMerl/asuswrt-merlin/master/release/src/router/rc/lan.c",
+      "https://medo64.com/posts/chromecast-in-isolated-guest-network",
+      "https://www.snbforums.com/threads/how-to-let-devices-see-each-other-in-guest-network.71540/",
+      "https://github.com/FDH2/UxPlay"
+     ]
+    },
+    {
+     "claim": "Whether two clients on the same guest SSID can reach each other depends on the firmware version, so it has to be tested on the home router.",
+     "verdict": "confirmed",
+     "note": "On 378.55 and 380.64, guests on the same SSID could see each other with Access Intranet off (MikeInNJ, Nasi Jose). john9527 quotes GUI code that forces wl_ap_isolate=1 when lanaccess is off, but only when amesh_support && amesh_wgn_support. RT-AC86U users report guests isolated from each other. I found no evidence either way on whether the home router supports AiMesh. ASUS's AiMesh FAQ and microsite only point to product pages, and the home router changelogs never mention AiMesh. The ebtables rules make the 'same SSID, same band' requirement follow directly.",
+     "sources": [
+      "https://www.snbforums.com/threads/how-do-i-isolate-clients-on-guest-wifi.31447/",
+      "https://www.snbforums.com/threads/rt-ac88u-ap-isolation-keeps-activating.75335/",
+      "https://www.snbforums.com/threads/asus-rt-ac86u-guest-network-isolation-between-clients.78835/",
+      "https://www.asus.com/support/faq/1035163/",
+      "router-specific source removed"
+     ]
+    },
+    {
+     "claim": "If guests are isolated, `nvram set wlX.Y_ap_isolate=0`, then `nvram commit`, then reboot lets them talk while staying off the main LAN. Saving the guest settings in the web page reverts it.",
+     "verdict": "partly",
+     "note": "eibgrad's commands (RT-AC68U/Merlin) were confirmed by Bobcat00 and Mike S. JWoo (RT-BE92U Merlin, TUF-AX3000 V2 Gnuton) says saving the guest settings resets the value to 1, and eibgrad warns that wireless changes will likely undo it. ColinTaylor notes it only affects wireless-to-wireless traffic on the same AP. All the confirmations come from Merlin or Gnuton, none from stock 382 on this model. The manual (p.73) shows Telnet, so the commands should be possible. A non-persistent runtime variant, `wl -i wl1.1 ap_isolate 0`, is implied by odkrys's `wl -i wl0.1 ap_isolate 1` in thread 31447.",
+     "sources": [
+      "https://www.snbforums.com/threads/allow-guest-network-devices-to-access-each-other.79446/",
+      "https://www.snbforums.com/threads/how-to-let-devices-see-each-other-in-guest-network.71540/",
+      "https://www.snbforums.com/threads/how-do-i-isolate-clients-on-guest-wifi.31447/",
+      "router-specific source removed"
+     ]
+    },
+    {
+     "claim": "Wireless > Professional 'Set AP Isolated' applies to a whole radio, so it cannot carve out the projector. ASUS's own FAQ suggests it for blocking guests.",
+     "verdict": "partly",
+     "note": "Manual p.50 confirms it stops wireless clients from talking to each other. RMerlin: 'The AP isolation option is only available globally, not on a per-guest network basis', and Nasi Jose saw it affect the regular 2.4 GHz network. The second part is refuted: the current ASUS FAQ 1009857 (updated 2025-05-12) does not mention AP isolation at all.",
+     "sources": [
+      "router-specific source removed",
+      "https://www.snbforums.com/threads/how-do-i-isolate-clients-on-guest-wifi.31447/",
+      "https://www.asus.com/support/faq/1009857"
+     ]
+    },
+    {
+     "claim": "Firewall 'Logged packets type' (Dropped/Accepted/Both) logs every new LAN-to-WAN connection with IP and port only, and guest traffic is included.",
+     "verdict": "confirmed",
+     "note": "Manual p.68 lists Dropped/Accepted/Both for LAN-WAN traffic. Legacy firewall.c: fw_log_x set to accept or both selects the 'logaccept' chain ('-A logaccept -m state --state NEW -j LOG --log-prefix \"ACCEPT \"'), and LAN-to-WAN forwarding uses '-A FORWARD -i br0 -j logaccept'. Guest interfaces are in the LAN bridge (see lan.c). Not checked: whether IPv6 forwarding is logged the same way. If the ISP provides IPv6, projector traffic over IPv6 could be missed.",
+     "sources": [
+      "router-specific source removed",
+      "https://raw.githubusercontent.com/RMerl/asuswrt-merlin/master/release/src/router/rc/firewall.c"
+     ]
+    },
+    {
+     "claim": "The system log can be sent to a remote syslog server (UDP 514) such as the Windows PC.",
+     "verdict": "partly",
+     "note": "ASUS FAQ 1044954 describes the 'Remote log server' field with default port 514, but names no models. The router's manual pages 73 and 75 do not mention it, and p.75 says the log is cleared on reboot. A third-party guide places the field under Administration > System, and an RT-N56U user reported the field existing years earlier, so it probably exists on 382. Not confirmed for this model. Windows has no built-in syslog listener: the user would have to install a receiver and allow inbound UDP 514.",
+     "sources": [
+      "https://www.asus.com/support/faq/1044954/",
+      "router-specific source removed",
+      "router-specific source removed"
+     ]
+    },
+    {
+     "claim": "No AiProtection, no Adaptive QoS and no Traffic Analyzer. Traffic Monitor shows totals per interface, not per device.",
+     "verdict": "confirmed",
+     "note": "Blacktubi (Apr 2017): SmartQoS only, no Adaptive QoS and no AiProtection, both attributed to CPU limits. It also says AiCloud and Download Master are not available, which matters for the WrtHug risk. ASUS FAQ 114483: Traffic Monitor groups traffic as Internet, Wired and Wireless.",
+     "sources": [
+      "router-specific source removed",
+      "https://www.asus.com/support/FAQ/114483"
+     ]
+    },
+    {
+     "claim": "Per-device controls: Parental Controls time scheduling with a per-MAC 'Block' kill switch, plus the Network Services Filter (blacklist by source IP and destination port). URL and keyword filters apply to all devices.",
+     "verdict": "partly",
+     "note": "The Network Services Filter is confirmed: it filters LAN to WAN only, a blank source IP means every device, and whitelist mode cuts everyone else off. The URL and keyword filters are global (manual p.69). The per-client Disable/Time/Block modes appear only in the current ASUS FAQ, which is written for newer firmware. The router's manual (p.32) describes only per-MAC internet time limits, so the 'Block' mode is unverified on 382. A schedule that denies every time slot does the same job. On the URL filter mechanism, the manual says it relies on DNS, while the legacy code uses HTTP 'webstr' matching on TCP. Either way it is weak against HTTPS.",
+     "sources": [
+      "https://www.asus.com/support/FAQ/1008720/",
+      "router-specific source removed",
+      "https://www.asus.com/support/FAQ/1013636",
+      "router-specific source removed",
+      "https://raw.githubusercontent.com/RMerl/asuswrt-merlin/master/release/src/router/rc/firewall.c"
+     ]
+    },
+    {
+     "claim": "DHCP Manual Assignment allows up to 32 entries. The DNS server field applies to all clients, there is no per-device DNS, and there is no DNS-over-TLS.",
+     "verdict": "confirmed",
+     "note": "Manual p.53: up to 32 MAC addresses and a single DNS server field. The ASUS FAQ describes one DNS field for all DHCP clients, with a blank field meaning the router answers. The DoT FAQ: 'only supported on the firmware version later than 3.0.0.4.386.4xxxx', which this 382-only model will never get.",
+     "sources": [
+      "router-specific source removed",
+      "https://asus.com/support/faq/1011703",
+      "https://www.asus.com/support/faq/1051428/"
+     ]
+    },
+    {
+     "claim": "AirPlay through UxPlay and the AirPlay Server app needs the iPad and the receiver on the same LAN with mDNS (UDP 5353) working, so the iPad must share the projector's segment.",
+     "verdict": "confirmed",
+     "note": "UxPlay README: 'must be on the same local area network'. It names UDP 5353 for mDNS, and '-p' alone sets TCP 7100/7000/7001 and UDP 6000/6001/7011; ports are random otherwise. Its Windows troubleshooting section warns about client/AP isolation on guest networks. The jqssun android-airplay-server README says senders must be on the 'same subnet' and does not mention Bluetooth LE beacon discovery. UxPlay's beacon is a separate Python script that needs a Bluetooth adapter on the server side, so I found no BLE route for the Android app.",
+     "sources": [
+      "https://github.com/FDH2/UxPlay",
+      "https://github.com/jqssun/android-airplay-server"
+     ]
+    },
+    {
+     "claim": "Add-on: a GL.iNet travel router on a LAN port of the ASUS, with the projector and the iPad on its Wi-Fi. A rule dropping traffic from its LAN to 192.168.1.0/24 isolates them, AdGuard Home provides per-client DNS logs, and the prices are Opal about €41 and Beryl AX about $87–99.",
+     "verdict": "partly",
+     "note": "psherman's rule is confirmed, described in words only. The thread does not cover DNS, but clients normally use the GL router as their resolver, so the rule does not affect them. The GL docs list GL-SFT1200 Opal and GL-MT300N-V2 among the models without AdGuard Home, and GL-MT3000 is not on that list. Correction: the cheapest AdGuard Home-capable model on the current store page is the Slate Plus GL-A1300 at $69.99, against $98.99 for the Beryl AX and $39.99 for the Opal. The store-eu and store-us URLs now redirect to gl-inet.com, so the € prices are unverified. The 'all clients show as localhost' thread is from GL firmware 3.x (MV1000, AR750S). The v4 docs say 'Handle Client Requests' makes AdGuard Home process client queries directly, but do not say it fixes per-client logs, so that is an inference. The port forward of TCP 5555 is untested, and it exposes ADB to every device on the main LAN, not only the PC. I found no confirmation that tcpdump installs on MT3000 firmware 4.x; a GL forum user needed an extra opkg feed on another model.",
+     "sources": [
+      "https://forum.openwrt.org/t/how-to-isolate-my-openwrt-lan-from-my-actual-lan/136443",
+      "https://docs.gl-inet.com/router/en/4/interface_guide/adguardhome/",
+      "https://forum.gl-inet.com/t/gl-mv1000-with-adguard-all-clients-show-as-localhost/13664",
+      "https://www.gl-inet.com/collections/travel-routers",
+      "https://forum.gl-inet.com/t/anyone-able-to-install-tcpdump/21801"
+     ]
+    },
+    {
+     "claim": "Free probation option: Windows Mobile Hotspot plus the built-in pktmon gives full captures for Wireshark. The hotspot uses 192.168.137.x and runs on the Public firewall profile.",
+     "verdict": "partly",
+     "note": "Microsoft Learn confirms pktmon is in-box on build 19041, supports Wi-Fi and can write pcapng ('pktmon etl2pcap <file> --out <name>'). The tutorial confirms the 192.168.137.x range with the PC at 192.168.137.1. It does not mention the firewall profile, so 'Public profile' is unverified. Wireshark itself has to be installed separately. I did not verify whether hotspot clients can reach each other, so AirPlay testing on the hotspot is unverified.",
+     "sources": [
+      "https://learn.microsoft.com/en-us/windows-server/networking/technologies/pktmon/pktmon",
+      "https://learn.microsoft.com/en-us/windows-server/networking/technologies/pktmon/pktmon-pcapng-support",
+      "https://us.informatiweb.net/tutorials/it/windows/windows-10-create-a-mobile-hotspot-wi-fi--2.html"
+     ]
+    },
+    {
+     "claim": "Pi-hole gives DNS visibility only, with no isolation, and it would cover the whole household because the ASUS DHCP DNS setting is global.",
+     "verdict": "confirmed",
+     "note": "Manual p.53 and the ASUS DHCP FAQ show a single DNS field for all clients. That an app with hardcoded DNS or DNS-over-HTTPS skips Pi-hole is general knowledge; I found no source specific to this device.",
+     "sources": [
+      "router-specific source removed",
+      "https://asus.com/support/faq/1011703"
+     ]
+    },
+    {
+     "claim": "Hardening: turn off UPnP, port triggering and port forwarding, and keep web access from WAN disabled.",
+     "verdict": "confirmed",
+     "note": "ASUS FAQ 1045028 recommends turning off UPnP, Port Trigger and Port Forwarding together and gives the menu paths. Manual p.73 has the web-access-from-WAN toggle. Missing from the research: EOL ASUS routers are being actively hijacked. WrtHug (Nov 2025) uses AiCloud and lists the sibling model, but not the home router. AyySSHush (2025) enables SSH on port 53282 with an attacker key stored in NVRAM, which survives firmware updates. A factory reset and reconfiguration is the remedy.",
+     "sources": [
+      "https://www.asus.com/support/FAQ/1045028",
+      "router-specific source removed",
+      "https://www.secpod.com/blog/wrthug-abuse-of-asus-wrt-vulnerabilities-exposes-thousands-of-eol-routers-2",
+      "https://www.labs.greynoise.io/grimoire/2025-03-28-ayysshush/",
+      "https://bleepingcomputer.com/news/security/botnet-hacks-9-000-plus-asus-routers-to-add-persistent-ssh-backdoor"
+     ]
+    }
+   ],
+   "corrected_bottom_line": "The research mostly holds up. The facts that drive the plan are confirmed: the home router is EOL on its last firmware (2020-06-29), there is no Merlin build, and OpenWrt has no 5 GHz support. The guest-network mechanism is now confirmed in source code, not only inferred. With Access Intranet = Disable, legacy ASUSWRT (rc/lan.c) adds `ebtables FORWARD -i/-o <guest_if> -j DROP`. That cuts a guest SSID off from the main LAN and from the other guest SSIDs at layer 2, mDNS and ARP included, while internet, DHCP and DNS from the router keep working.\n\nStock-firmware plan (free):\n- Put the projector and the iPad on the same single guest SSID (one band, for example 5 GHz guest #2) with Access Intranet off.\n- Test AirPlay.\n- If the two are isolated from each other, enable Telnet and run `nvram set wl1.2_ap_isolate=0; nvram commit; reboot` (or `wl -i wl1.2 ap_isolate 0` for a non-persistent test). Disable Telnet afterwards. Saving the guest page will likely undo it. This workaround is proven on Merlin and on other models, not on this one.\n- Log the projector's outgoing connections with Firewall > Logged packets type = Accepted, filtered by its fixed DHCP address. This gives IPv4 IP and port only. IPv6 logging is unverified, so disable IPv6 during probation.\n- Use a remote syslog server if the field exists on this firmware (likely, not confirmed). The PC needs a syslog receiver, which Windows does not include.\n- Per-device kill switches: the Network Services Filter blacklist (confirmed), and parental-control scheduling per MAC. The newer 'Block' mode is unverified on 382; a deny-all schedule does the same job.\n- No per-device DNS, no DoT, no AiProtection.\n\nAPK installs over Wi-Fi are possible with stock firmware. The PC cannot reach port 5555 across the guest boundary, so for each install session either:\n- join the PC's Wi-Fi to the same guest SSID, or\n- briefly turn Access Intranet on, then off again.\n\nThe USB stick or external drive stays as the fallback. ADB on the projector should require key authorization (RSA auth), not stay open.\n\nBetter paid option: a GL.iNet router on a LAN port of the ASUS, with the projector and the iPad on its Wi-Fi and a rule dropping LAN to 192.168.1.0/24 (check the real ASUS subnet first). AirPlay keeps working, the main LAN is isolated, and a TCP 5555 port forward gives one-way PC-to-projector ADB, though the forward is untested and open to the whole main LAN. Correction to the research's pick: the cheapest AdGuard Home-capable model on the current store page is the Slate Plus GL-A1300 ($69.99). The Beryl AX is $98.99, and the Opal at $39.99 has no AdGuard Home. Per-client DNS logs through 'Handle Client Requests' are inferred, not documented.\n\nBefore trusting the router's own logs, harden it:\n- turn off UPnP, port forwarding, port triggering and WAN web access\n- check Administration > System for unexpected SSH settings or keys (AyySSHush uses port 53282)\n- factory-reset and reconfigure if anything looks wrong\n\nPlan to replace the router; EOL ASUS models are being hijacked at scale (WrtHug, AyySSHush).",
+   "gaps": [
+    {
+     "issue": "The router itself is an untrusted EOL device: EOL ASUSWRT routers are being hijacked at scale. AyySSHush stores attacker SSH keys in NVRAM, which survives firmware updates; WrtHug names a sibling model. If the router is compromised, its own logs and isolation cannot be trusted. Check the SSH and authorized-key settings and look for port 53282; factory-reset and set a strong password before probation.",
+     "sources": [
+      "https://www.labs.greynoise.io/grimoire/2025-03-28-ayysshush/",
+      "https://www.secpod.com/blog/wrthug-abuse-of-asus-wrt-vulnerabilities-exposes-thousands-of-eol-routers-2"
+     ]
+    },
+    {
+     "issue": "IPv6: the firewall logging and the Network Services Filter were checked only for IPv4. If the ISP provides IPv6, the projector could talk over IPv6 without showing up in the IPv4 logs. Disable IPv6 on the router during probation, or confirm that ip6tables logging works.",
+     "sources": [
+      "https://raw.githubusercontent.com/RMerl/asuswrt-merlin/master/release/src/router/rc/firewall.c"
+     ]
+    },
+    {
+     "issue": "Not verified on this model's last firmware: whether a guest SSID with Access Intranet off forces client isolation (AiMesh support unknown), whether the nvram ap_isolate=0 workaround works and persists, whether SSH exists alongside Telnet, and whether the Remote log server field exists. All four need a check in the router's web interface or Telnet.",
+     "sources": [
+      "https://www.snbforums.com/threads/rt-ac88u-ap-isolation-keeps-activating.75335/",
+      "router-specific source removed"
+     ]
+    },
+    {
+     "issue": "Remote syslog needs a third-party syslog receiver on Windows plus an inbound UDP 514 firewall rule; Windows does not include one. The router's local log is cleared on reboot (manual p.75) and fills quickly with household-wide 'Accepted' entries.",
+     "sources": [
+      "https://www.asus.com/support/faq/1044954/",
+      "router-specific source removed"
+     ]
+    },
+    {
+     "issue": "While the iPad is on the guest SSID it loses access to everything on the main LAN. The user has to switch the iPad's Wi-Fi when they want to cast, or keep it on the guest SSID permanently.",
+     "sources": [
+      "https://raw.githubusercontent.com/RMerl/asuswrt-merlin/master/release/src/router/rc/lan.c"
+     ]
+    },
+    {
+     "issue": "APK installs over Wi-Fi: every route found either puts the PC next to the projector (PC joins the guest SSID, or Access Intranet is briefly turned on) or exposes ADB to the whole main LAN (GL.iNet port forward). Nothing here covers securing the projector's ADB itself: turning off unauthenticated TCP 5555 and requiring RSA key approval, or Android 11 Wireless debugging with pairing. That belongs to the projector-hardening research but decides whether Wi-Fi installs are safe.",
+     "sources": []
+    },
+    {
+     "issue": "DNS hostnames: stock firmware cannot log the projector's DNS queries. The only per-client DNS log path found is AdGuard Home on a supported GL.iNet model. GL firmware 3.x showed every client as localhost; whether the v4 'Handle Client Requests' option fixes that is not documented.",
+     "sources": [
+      "https://docs.gl-inet.com/router/en/4/interface_guide/adguardhome/",
+      "https://forum.gl-inet.com/t/gl-mv1000-with-adguard-all-clients-show-as-localhost/13664"
+     ]
+    },
+    {
+     "issue": "I found no source for whether the AirPlay Server app runs on the projector's 32-bit armeabi-v7a userspace; its README names no supported ABIs. Its README also says DRM-protected content (for example the Apple TV app) is not supported, so some iPad apps will not cast.",
+     "sources": [
+      "https://github.com/jqssun/android-airplay-server"
+     ]
+    },
+    {
+     "issue": "Windows Mobile Hotspot: I could not confirm that hotspot clients can reach each other (needed to test AirPlay there) or that the hotspot network gets the Public firewall profile.",
+     "sources": [
+      "https://us.informatiweb.net/tutorials/it/windows/windows-10-create-a-mobile-hotspot-wi-fi--2.html"
+     ]
+    }
+   ]
+  }
+ },
+ {
+  "key": "netflix",
+  "research": {
+   "bottom_line": "If the projector behaves like other H713 units, it runs Netflix at about 540p (Widevine L3, SD) through the sideloaded phone/tablet app, and the phone layout is awkward to use with a remote. Plan on that unless DRM Info shows otherwise. The Netflix Android TV app does not run on uncertified devices. Netflix says it only supports Android TV devices where it is listed in the Play Store, and the projector has no Play Store. Reviews of other H713 projectors from 2025 report Disney+ at about 720p and Prime Video at 480p. YouTube through SmartTube has no DRM, so it can reach the panel's full native resolution. SmartTube must come from its GitHub releases or F-Droid only: its signing key was compromised in December 2025, and builds from 30.55 on use a new key. microG is not worth adding. Widevine lives in the platform's DRM layer, not in Google Play Services, so microG cannot raise quality. Signature spoofing on stock Android 11 needs Zygisk + LSPosed hooks into system_server, which is new attack surface on a device you just cleaned. No source I found shows Netflix, Disney+ or Prime Video needing it. A Chromecast with Google TV, by contrast, is Netflix-certified Widevine L1: it plays 1080p (HD model) or 4K (4K model, capped by the panel's native resolution), with the proper TV app, remote and 5.1/Atmos. Recommendation: keep the paid DRM services (Netflix, Disney+, Prime) on the Chromecast. Use the projector's own Android for SmartTube, local files from the external drive, AirPlay and free or less-protected apps. One new risk: in at least one H713 firmware family, a Widevine L3 file bundle is put on the device by the malware, so after the cleanup check with DRM Info that Widevine still works.",
+   "findings": [
+    {
+     "claim": "H713 projectors ship with Widevine L3 only (no L1) and are not Google- or Netflix-certified, so paid streaming apps are capped at SD or near-SD.",
+     "confidence": "high",
+     "detail": "Two separate reviews from 2025 of H713 / Android 11 units say the same thing. The androidpctv review of the Magcubic HY300 Pro (28 Apr 2025) lists 'DRM: Google Widevine L3', no audio/video certificates and no Google Play. The Simple Home Cinema review of the Magcubic L018 (15 Oct 2025, H713, Android 11 32-bit, 1 GB / 8 GB) says Netflix and Prime Video play 'at SD only'. A BadBox analysis of another H713 firmware (Sep 2026) also describes the device as uncertified and L3-only. Certification is granted per device and firmware, not per chip, so your own unit is still unverified. I found no H713 device with L1.",
+     "sources": [
+      "https://androidpctv.com/magcubic-hy300-pro-review/",
+      "https://simplehomecinema.com/2025/10/15/magcubic-l018-projector-review-is-it-a-good-value-1080p-projector-under-us100/",
+      "https://github.com/florentineprinzessinzusachsen/badbox-h713-projector",
+      "https://androidpctv.com/firmware-magcubic-hy310/"
+     ]
+    },
+    {
+     "claim": "How to check the Widevine level: in the Netflix app go to App Settings > Playback Specification, which shows L1 or L3. The DRM Info app (com.androidfung.drminfo) also shows it.",
+     "confidence": "high",
+     "detail": "Netflix's help page says HD on an Android phone or tablet needs Widevine L1, and that if Playback Specification shows L3 'you'll only be able to watch Netflix in SD'. ASUS documents the same menu path. DRM Info reads the MediaDrm API but is closed source, from a third-party developer. The Netflix menu avoids installing an extra APK. Running 'adb shell dumpsys media.drm' is a possible command-line check, but I could not confirm its output format on Android 11.",
+     "sources": [
+      "https://help.netflix.com/en/node/23939",
+      "https://www.asus.com/support/faq/1044946/",
+      "https://www.cnx-software.com/2015/11/16/drm-info-android-app-reports-widevine-and-playready-drm-information/",
+      "https://www.apkmirror.com/apk/android-fung/drm-info-2"
+     ]
+    },
+    {
+     "claim": "Netflix officially caps L3 Android devices at SD. The current phone/tablet app needs Android 9+, so Android 11 qualifies.",
+     "confidence": "high",
+     "detail": "From the Netflix help page: the latest app needs 'Android OS 9 or later'; HD needs Widevine L1; with L3 'you'll only be able to watch Netflix in SD'. The same page warns that rooted or modified devices 'might not be able to download' the app, and that changes to certification status may stop it working properly. Netflix plans: Standard with ads and Standard are 1080p, Premium is 4K + HDR. On L3 the plan does not change the ceiling.",
+     "sources": [
+      "https://help.netflix.com/en/node/23939",
+      "https://help.netflix.com/en/node/24926"
+     ]
+    },
+    {
+     "claim": "The Netflix Android TV app (com.netflix.ninja) does not work on uncertified Android TV devices.",
+     "confidence": "high",
+     "detail": "Netflix's own article on error -13 says 'If you do not see the Netflix app in the Google Play Store, your device is not compatible with Netflix'. A Khadas forum thread (Aug 2023) shows the TV app failing with -13 on an uncertified box, and androidpctv says the Android TV app does not work on such boxes because of DRM protection. Workarounds exist but I don't recommend them. One is a modified ninja APK on GitHub (aidanmacgregor) that embeds a borrowed ESN, and its own ESN history shows Netflix blocking them after weeks or months. It is also untrusted modified code, which works against your security goal. The other, the Kodi Netflix add-on (CastagnaIT), says development is suspended and playback is SD at best 'when it works'. One more data point: the BadBox H713 firmware spoofs a Google ADT-3 identity and installs a ninja build. That suggests some vendors fake certification to get the TV app running.",
+     "sources": [
+      "https://help.netflix.com/en/node/100226",
+      "https://forum.khadas.com/t/netflix-for-android-tv-app-not-working/20045",
+      "https://androidpctv.com/netflix-your-device-isnt-compatible-with-this-version/",
+      "https://github.com/aidanmacgregor/Netflix_ATV_L3_DRM_Uncertified_Mod",
+      "https://github.com/CastagnaIT/plugin.video.netflix",
+      "https://github.com/florentineprinzessinzusachsen/badbox-h713-projector"
+     ]
+    },
+    {
+     "claim": "The sideloaded phone/tablet Netflix app does run on H713 projectors without Google Play, at about 540p (SD) with stereo audio.",
+     "confidence": "high",
+     "detail": "androidpctv's HY300 Pro review (Apr 2025, no Google Play, apps installed from APK) rates Netflix 'SD 540p, stereo'. Its older Netflix article (updated 2024) says recent phone versions reach 960x540. Simple Home Cinema (Oct 2025) also reports Netflix SD on an H713 unit. The old 2017 'rooted' block worked by hiding the Play Store listing; reports from then say sideloaded copies kept running.",
+     "sources": [
+      "https://androidpctv.com/magcubic-hy300-pro-review/",
+      "https://androidpctv.com/netflix-your-device-isnt-compatible-with-this-version/",
+      "https://simplehomecinema.com/2025/10/15/magcubic-l018-projector-review-is-it-a-good-value-1080p-projector-under-us100/",
+      "https://www.trustedreviews.com/news/the-latest-version-of-netflix-won-t-run-on-rooted-android-smartphones-and-tablets-2948723"
+     ]
+    },
+    {
+     "claim": "The Netflix phone app does not appear to need Google Play Services or Play Integrity at runtime. Its certification gate is the Play Store listing.",
+     "confidence": "medium",
+     "detail": "The H713 review units have no Google Play and still play Netflix. GrapheneOS forum users report Netflix working without Google services when installed from outside the Play Store, and say Netflix's Play listing wrongly declares a SafetyNet/integrity requirement, which only hides the app in the store. Those posts are undated. On /e/OS (microG) results are mixed. I found no 2025-2026 source showing Netflix enforcing Play Integrity at runtime. Subscribing inside the app needs Google Play billing, so sign up on the web.",
+     "sources": [
+      "https://androidpctv.com/magcubic-hy300-pro-review/",
+      "https://discuss.grapheneos.org/d/942-netflix-app",
+      "https://discuss.grapheneos.org/d/1463-netflix-is-not-compatible-with-the-device",
+      "https://community.e.foundation/t/e-os-and-netflix/37494",
+      "https://www.fastweb.it/smartphone-e-gadget/huawei-appgallery/"
+     ]
+    },
+    {
+     "claim": "The 32-bit armeabi-v7a userspace is supported by Netflix phone 8.x builds up to at least Jan 2025. For the 2025-2026 9.x builds I could not confirm it.",
+     "confidence": "low",
+     "detail": "APKMirror lists 8.x builds such as 8.96.1 and 8.114.0 as armeabi-v7a, Android 7.0+; the last 8.x is 8.143.1 (25 Jan 2025). Builds 9.30 (Aug 2025) and 9.50 (Jan 2026) exist, but their architecture did not show. I found no announcement of Netflix dropping 32-bit. The H713 reviews from 2025 do show Netflix running on 32-bit units.",
+     "sources": [
+      "https://apkmirror.com/apk/netflix-inc/netflix/netflix-8-114-0-release/netflix-8-114-0-android-apk-download",
+      "https://www.apkmirror.com/apk/netflix-inc/netflix/netflix-9-31-0-build-5-63453-release",
+      "https://simplehomecinema.com/2025/10/15/magcubic-l018-projector-review-is-it-a-good-value-1080p-projector-under-us100/"
+     ]
+    },
+    {
+     "claim": "Using the phone Netflix app on a projector needs a D-pad helper or an air mouse.",
+     "confidence": "medium",
+     "detail": "The BadBox H713 firmware ships com.android.nfx ('NFXAccessibility'), a Netflix D-pad navigation helper. The analyst judged it harmless: it is active only while com.netflix.mediaclient is in the foreground and has no INTERNET permission. androidpctv recommends a mouse or air mouse for the phone app. An HY320 buyer review also mentions a wireless mouse helping. Your Hotack firmware may have a similar helper; check before removing anything Netflix-related.",
+     "sources": [
+      "https://github.com/florentineprinzessinzusachsen/badbox-h713-projector",
+      "https://androidpctv.com/netflix-your-device-isnt-compatible-with-this-version/",
+      "https://www.manomano.es/p/proyector-hy320-compatible-con-4k-y-1080p-wi-fi-6-de-doble-banda-5g-inalambrico-bluetooth-5-0-y-android-11-gira-180-y-cuenta-con-correccion-trapezoidal-automatica-240274352"
+     ]
+    },
+    {
+     "claim": "Risk after the cleanup: in one H713 firmware family the Widevine L3 file bundle is put on the device by the malware, so Widevine may need checking after cleaning or a reset.",
+     "confidence": "low",
+     "detail": "The BadBox analysis (AT-M269 / HY300-clone firmware, build h713m_tuna_p3 Android 11) says plugin.jar 'drops a DRM key/licence bundle so streaming apps run on the uncertified device'. It goes into /data/mediadrm/IDM1013/L3/ and is downloaded as L3.zip from an RK3326 path. If your Hotack firmware relies on the same trick, wiping data or removing the dropper could leave Widevine unprovisioned, and DRM apps would then fail outright rather than drop to SD. Not verified for your HY320. Check DRM Info and the Netflix Playback Specification after cleanup, and keep /data/mediadrm in the eMMC backup.",
+     "sources": [
+      "https://github.com/florentineprinzessinzusachsen/badbox-h713-projector",
+      "https://neodyme.io/de/blog/widevine_l3"
+     ]
+    },
+    {
+     "claim": "Disney+ plays at about 720p on H713 L3 units. A sideloaded APK works on uncertified boxes, but whether it depends on Google services is mixed.",
+     "confidence": "medium",
+     "detail": "The HY300 Pro review rates Disney+ 'HD (720p)', and the L018 review says 'Disney+ caps at 720p'. androidpctv says Disney+ is hidden in Play on uncertified boxes and that manual APK install works. One GrapheneOS user had Disney+ stuck on its logo screen until Play was installed in a separate profile, while another ran it without Google Play Services. Whether current builds still include armeabi-v7a: not found.",
+     "sources": [
+      "https://androidpctv.com/magcubic-hy300-pro-review/",
+      "https://simplehomecinema.com/2025/10/15/magcubic-l018-projector-review-is-it-a-good-value-1080p-projector-under-us100/",
+      "https://androidpctv.com/disney-incompatible-android-tvbox-tablet-smartphone-fix/",
+      "https://discuss.grapheneos.org/d/20256-streaming-apps"
+     ]
+    },
+    {
+     "claim": "Prime Video plays at SD (480p) on H713 L3 units, and Amazon's Appstore for non-Amazon Android devices closed on 20 Aug 2025.",
+     "confidence": "medium",
+     "detail": "The HY300 Pro review gives 'SD (480p)', and the L018 review says Prime Video plays at SD only. Since the Amazon Appstore shutdown, apps installed from it are 'not guaranteed to operate'. On the projector Prime Video would be another sideloaded APK. Google Play Services dependence: not found. The reviewed units ran it without Google Play.",
+     "sources": [
+      "https://androidpctv.com/magcubic-hy300-pro-review/",
+      "https://simplehomecinema.com/2025/10/15/magcubic-l018-projector-review-is-it-a-good-value-1080p-projector-under-us100/",
+      "https://9to5google.com/2025/02/20/amazon-appstore-android-shutting-down-2025/"
+     ]
+    },
+    {
+     "claim": "YouTube: SmartTube needs no Google services and has armeabi-v7a builds. Get it only from its GitHub releases or F-Droid, because of the Dec 2025 signing-key compromise.",
+     "confidence": "high",
+     "detail": "SmartTube's README says it does not require Google Services, needs Android 4.3+, and should not be downloaded from 'any app store, APK websites or blogs'. Official sources are GitHub releases, the kutt.to/stn_* links and F-Droid (app.smarttube.fdroid). Releases include armeabi-v7a APKs: stable 32.56 (23 Sep) and beta 32.68 (17 Oct). BleepingComputer (1-2 Dec 2025) reported the developer's signing keys stolen and a malicious libalphasdk.so in release builds (developer: 30.43-30.47; a 30.51 build was also found infected). The developer says 30.55 onward uses a new key; the BleepingComputer coverage says the fixed build installs as a separate app. Quality: YouTube is mostly DRM-free, so the decoder and panel set the limit. The reviews report HD on the 720p HY300 Pro and 1440p streams on the L018. The official Google YouTube TV app is a Google app that relies on Google services, which an uncertified device lacks.",
+     "sources": [
+      "https://github.com/yuliskov/SmartTube",
+      "https://github.com/yuliskov/SmartTube/releases",
+      "https://bleepingcomputer.com/news/security/smarttube-youtube-app-for-android-tv-breached-to-push-malicious-update",
+      "https://cyberinsider.com/popular-youtube-app-for-android-tv-smarttube-compromised-with-malware/",
+      "https://androidpctv.com/magcubic-hy300-pro-review/",
+      "https://simplehomecinema.com/2025/10/15/magcubic-l018-projector-review-is-it-a-good-value-1080p-projector-under-us100/"
+     ]
+    },
+    {
+     "claim": "RaiPlay: no evidence found on its Google Play Services or Widevine-level requirements on uncertified devices.",
+     "confidence": "low",
+     "detail": "RaiPlay offers Rai account login and other non-Google logins, so a Google account doesn't seem required. Without signing in, only the live channels are available. The web version at raiplay.it is a fallback. Whether the Android or Android TV app runs without Google services, or what resolution it reaches on L3: not found. You'll have to test it.",
+     "sources": [
+      "https://www.smartworld.it/guide/guardare-raiplay-gratis.html",
+      "https://techprincess.it/raiplay-su-google-tv/"
+     ]
+    },
+    {
+     "claim": "microG is technically possible on rooted Android 11 but brings no streaming benefit and adds risk; skip it.",
+     "confidence": "medium",
+     "detail": "microG needs signature spoofing. On stock Android 11 that means Zygisk + LSPosed with FakeGApps: the microG wiki lists FakeGApps for Android 4.0-15 and the JingMatrix LSPosed fork for 8.1-16, and says ROM patchers 'still work properly only on Android < 9'. The 'microG Installer Revived' Magisk/KernelSU module promotes GmsCore to a privileged app but still needs separate spoofing. One 2021 report saw FakeGApps fail on Android 11 (NoSuchMethodError). Widevine is a vendor DRM HAL plugin in the platform ('Plugins are built by vendors or SOC makers and put in a /vendor partition'), so microG can't raise L3 to L1. A Sailfish thread notes microG has never provided Widevine. An uncertified, rooted device gets an empty Play Integrity device verdict ('genuine and certified Android device' is required for MEETS_DEVICE_INTEGRITY), so microG won't unlock apps that check integrity. Risks: code injected into system_server and every app, a spoofing permission any app can request, and more attack surface on a device whose firmware is already untrusted. Real GApps are no better: Google blocks sign-in on uncertified devices unless each Android ID is registered (2018 policy).",
+     "sources": [
+      "https://github.com/microg/GmsCore/wiki/Signature-Spoofing",
+      "https://github.com/microg/GmsCore/wiki",
+      "https://modules.kernelsu.org/module/microg_installer_revived_again/",
+      "https://redlib.hbubli.cc/r/MicroG/comments/mjvso2/fakegapps_problem",
+      "https://source.android.com/docs/core/media/drm",
+      "https://forum.sailfishos.org/t/disney-error-code-39-in-4-1-4-2/8200",
+      "https://developer.android.com/google/play/integrity/verdicts",
+      "https://www.androidpolice.com/2018/03/27/google-confirms-blocking-google-apps-uncertified-android-devices-heres-deal/"
+     ]
+    },
+    {
+     "claim": "Netflix through the Chromecast into HDMI is far better: certified L1, 1080p or 4K, capped by the projector's native panel, with the TV interface, remote and surround audio.",
+     "confidence": "high",
+     "detail": "Google says Chromecast with Google TV (HD) plays up to 1080p and the 4K model up to 4K, but only at a resolution the display supports. Netflix's Chromecast page lists 5.1 and Dolby Atmos support. Your Standard or Premium plan's 1080p would actually be delivered, against about 540p on the projector's own Android. The panel's native resolution (HY320 listings say 720p or 1080p) is the real ceiling. HDCP support on the H713 HDMI input is not documented anywhere I found, but if the Chromecast already plays Netflix on it, HDCP is fine. Which Chromecast model you have (Google TV HD/4K or an older cast-only one) is not known.",
+     "sources": [
+      "https://help.netflix.com/vi/node/23924",
+      "https://help.netflix.com/en/node/24926",
+      "https://www.smartworld.it/guide/netflix-bassa-qualita-streaming-stick.html"
+     ]
+    }
+   ],
+   "open_questions": [
+    "What Widevine level does your actual HY320 report (DRM Info or the Netflix Playback Specification), and does Widevine still work after the malware removal? Check this before and after the cleanup, and keep /data/mediadrm in the eMMC backup.",
+    "Does the Hotack HY320 firmware ship Google Play Services, a Netflix APK or a Netflix D-pad helper (like com.android.nfx)? List the packages before removing anything.",
+    "What is the panel's native resolution (listings say 720p or 1080p)? This sets the ceiling for both Chromecast and SmartTube.",
+    "Which Chromecast model do you have: Google TV HD, Google TV 4K, or an older cast-only one?",
+    "Do the current Netflix 9.x, Disney+ and Prime Video APKs still ship armeabi-v7a code? Not confirmed for 2025-2026 builds.",
+    "RaiPlay (and other Italian apps such as Mediaset Infinity): Google Play Services dependence and L3 resolution not found; they need testing on the device."
+   ]
+  },
+  "verify": {
+   "checks": [
+    {
+     "claim": "H713 projectors ship with Widevine L3 only (no L1) and are not Google- or Netflix-certified, so paid streaming apps are capped at SD or near-SD.",
+     "verdict": "confirmed",
+     "note": "androidpctv's HY300 Pro review (28 Apr 2025) lists 'Google Widevine L3', no certificates and no Google Play. Note that this unit's native panel is 1280x720. Simple Home Cinema's L018 review (H713, Android 11 32-bit, 1 GB / 8 GB) gives 'Netflix SD (Widevine L3)'. androidpctv's 2026 HY310 firmware page says the H713 unit 'lacks certification for paid streaming platforms'. The BadBox writeup confirms an ADT-3 identity spoof meant 'to pass Google certification'. Searches for an L1 or Netflix-certified H713 device found nothing to refute the claim, only L1 projectors on other chips. Certification is per device, so the user's HY320 is still unverified.",
+     "sources": [
+      "https://androidpctv.com/magcubic-hy300-pro-review/",
+      "https://simplehomecinema.com/2025/10/15/magcubic-l018-projector-review-is-it-a-good-value-1080p-projector-under-us100/",
+      "https://androidpctv.com/firmware-magcubic-hy310/",
+      "https://github.com/florentineprinzessinzusachsen/badbox-h713-projector"
+     ]
+    },
+    {
+     "claim": "Check the Widevine level in the Netflix app (App Settings > Playback Specification) or with DRM Info.",
+     "verdict": "confirmed",
+     "note": "Netflix's page gives the full path as My Netflix > Menu > App Settings > Diagnostics > Playback Specification, with L1 or L3 shown next to Widevine. APKMirror's listing confirms that DRM Info shows MediaDrm module info. Not verified: that DRM Info is closed source, and the ASUS FAQ (not opened). I found no example output for 'dumpsys media.drm', so it stays unconfirmed. The Netflix menu is enough and avoids an extra third-party APK.",
+     "sources": [
+      "https://help.netflix.com/en/node/23939",
+      "https://www.apkmirror.com/apk/android-fung/drm-info-2"
+     ]
+    },
+    {
+     "claim": "Netflix officially caps L3 Android devices at SD; the current phone app needs Android 9+.",
+     "verdict": "confirmed",
+     "note": "The page quotes 'Android OS 9 or later', says HD needs Widevine L1, and says L3 means SD. It also warns that rooted or modified devices 'might not be able to download' the app, and that changes to certification status 'may keep the Netflix app from functioning properly'. The plans page confirms Standard with ads and Standard at 1080p, and Premium at 4K + HDR.",
+     "sources": [
+      "https://help.netflix.com/en/node/23939",
+      "https://help.netflix.com/en/node/24926"
+     ]
+    },
+    {
+     "claim": "The Netflix Android TV app (com.netflix.ninja) does not work on uncertified devices; workarounds are not recommended.",
+     "verdict": "confirmed",
+     "note": "Netflix's -13 article: 'If you do not see the Netflix app in the Google Play Store, your device is not compatible with Netflix.' In the Khadas VIM4 thread (Aug 2023) the TV app fails with -13. androidpctv says the TV app 'does not work because the DRM protection'. The aidanmacgregor repo does embed an ESN, and its ESN history says one was blocked 'after several months' and another 'a week or so later'. The repo does not say the ESN is 'borrowed', and it lists an Android 12+ issue. The CastagnaIT README confirms development is 'SUSPENDED' and playback 'WHEN IT WORKS, IS LIMITED TO SD'. The BadBox firmware does spoof ADT-3 and lists Netflix_425.apk (com.netflix.ninja) for install.",
+     "sources": [
+      "https://help.netflix.com/en/node/100226",
+      "https://forum.khadas.com/t/netflix-for-android-tv-app-not-working/20045",
+      "https://androidpctv.com/netflix-your-device-isnt-compatible-with-this-version/",
+      "https://github.com/aidanmacgregor/Netflix_ATV_L3_DRM_Uncertified_Mod",
+      "https://github.com/CastagnaIT/plugin.video.netflix",
+      "https://github.com/florentineprinzessinzusachsen/badbox-h713-projector"
+     ]
+    },
+    {
+     "claim": "The sideloaded phone/tablet Netflix app runs on H713 projectors without Google Play at about 540p, stereo.",
+     "verdict": "confirmed",
+     "note": "The HY300 Pro review gives Netflix 540p SD, stereo, with apps installed from APK and no Google Play. androidpctv's guide says '960x540p or more' for the latest version. The L018 review gives SD. PCWelt (15 May 2017) confirms that the 2017 block was a Play-listing block and that APK installs kept working. The Trusted Reviews article was not opened.",
+     "sources": [
+      "https://androidpctv.com/magcubic-hy300-pro-review/",
+      "https://androidpctv.com/netflix-your-device-isnt-compatible-with-this-version/",
+      "https://simplehomecinema.com/2025/10/15/magcubic-l018-projector-review-is-it-a-good-value-1080p-projector-under-us100/",
+      "https://www.pcwelt.de/article/1164924/android-netflix-sperrt-root-geraete-aus.html"
+     ]
+    },
+    {
+     "claim": "The Netflix phone app does not need Google Play Services or Play Integrity at runtime; the gate is the Play listing.",
+     "verdict": "partly",
+     "note": "Supported indirectly: the review units have no Play and still play Netflix. An androidayuda piece (about Nov 2025, judging by its image path) says the app 'continues to function normally' on rooted devices but that Netflix 'may strengthen its controls'. Fastweb confirms you cannot subscribe inside an app without GMS, so sign up on the web. The GrapheneOS threads would not load. Their content was seen only in search snippets: the app works installed outside Play, and the listing declares a SafetyNet/Integrity requirement. That is user-reported, undated, and not confirmed by Netflix. I found no 2025-2026 source on runtime enforcement either way, so this is absence of evidence. Netflix's own page keeps a hedge for rooted devices.",
+     "sources": [
+      "https://androidpctv.com/magcubic-hy300-pro-review/",
+      "https://en.androidayuda.com/netflix-blocks-app-root-devices/",
+      "https://www.fastweb.it/smartphone-e-gadget/huawei-appgallery/",
+      "https://discuss.grapheneos.org/d/1463-netflix-is-not-compatible-with-the-device",
+      "https://help.netflix.com/en/node/23939"
+     ]
+    },
+    {
+     "claim": "32-bit armeabi-v7a is supported by Netflix 8.x builds; for 9.x builds it could not be confirmed.",
+     "verdict": "partly",
+     "note": "The gap is narrower than stated. APKMirror search results show Netflix 9.26.0 as armeabi-v7a, Android 9.0+, nodpi, dated 6 Aug 2025. They also show 9.38.0 as com.netflix.mediaclient_9.38.0-63520_minAPI28(armeabi-v7a)(nodpi), signed by Netflix, Inc. APKMirror pages return 403 to my fetches, so this rests on search snippets only. The newest 2026 builds (for example 9.87.1 build 9, nodpi) have no architecture shown, so 32-bit support for current 2026 builds is still not confirmed.",
+     "sources": [
+      "https://www.apkmirror.com/apk/netflix-inc/netflix/netflix-9-38-0-release/netflix-9-38-0-android-apk-download/",
+      "https://www.apkmirror.com/?p=10272000",
+      "https://www.apkmirror.com/apk/netflix-inc/netflix/netflix-9-87-1-build-9-74701-release/netflix-9-87-1-build-9-74701-android-apk-download/"
+     ]
+    },
+    {
+     "claim": "Using the phone Netflix app on a projector needs a D-pad helper or an air mouse.",
+     "verdict": "partly",
+     "note": "The BadBox writeup confirms com.android.nfx at /system/priv-app/NFXAccessibility. It is a 'Netflix D-pad navigation helper, active only while com.netflix.mediaclient is in the foreground', its manifest has no INTERNET permission, and the analyst 'kept, harmless'. It does not list the helper's other permissions, and an accessibility service is powerful, so 'harmless' is the analyst's judgement. androidpctv says 'we are going to need a mouse or fly mouse'. The ManoMano buyer review was not checked.",
+     "sources": [
+      "https://github.com/florentineprinzessinzusachsen/badbox-h713-projector",
+      "https://androidpctv.com/netflix-your-device-isnt-compatible-with-this-version/"
+     ]
+    },
+    {
+     "claim": "In one H713 firmware family the malware drops the Widevine L3 bundle, so Widevine may break after cleanup.",
+     "verdict": "partly",
+     "note": "The fact is confirmed: plugin.jar 'drops a DRM key/licence bundle so streaming apps run on the uncertified device' into /data/mediadrm/IDM1013/L3/, downloaded as L3.zip from a URL with 'rk3326' in its path (the doc treats that as a label only). Neodyme shows that /data/vendor/mediadrm/IDM1013/L3/ is the normal Widevine L3 storage directory, holding the encrypted keybox. KeyDive's developer docs say L3 devices may use a 'pre-installed baked-in DRM certificate'. So the drop plausibly plants keybox or certificate material. Whether removing it breaks Widevine on the HY320 cannot be verified. The consequence is a hypothesis.",
+     "sources": [
+      "https://github.com/florentineprinzessinzusachsen/badbox-h713-projector",
+      "https://neodyme.io/de/blog/widevine_l3",
+      "https://drm-free.duckdns.org/thegame_1980/KeyDive/src/tag/v3.0.3/DEVELOPERS.md"
+     ]
+    },
+    {
+     "claim": "Disney+ plays at about 720p on H713 L3 units; the sideloaded APK works; Google-services dependence is mixed.",
+     "verdict": "partly",
+     "note": "720p is confirmed by both reviews ('HD (720p)' and 'Disney+ caps at 720p'). androidpctv's Disney+ article (2020, updated 2022) confirms Play hides the app on uncertified boxes and that a manual APK install works. The GrapheneOS thread would not load, so the mixed reports are unverified. ARM v7 support was 'not found' in the research, but APKMirror search snippets show the phone build Disney+ 26.15.2+rc1-2026.09.01 (Android 6.0+) with an armeabi-v7a split.",
+     "sources": [
+      "https://androidpctv.com/magcubic-hy300-pro-review/",
+      "https://simplehomecinema.com/2025/10/15/magcubic-l018-projector-review-is-it-a-good-value-1080p-projector-under-us100/",
+      "https://androidpctv.com/disney-incompatible-android-tvbox-tablet-smartphone-fix/",
+      "https://www.apkmirror.com/apk/disney/disney/disney-26-15-2rc1-2026-09-01-release/disney-26-15-2rc1-2026-09-01-android-apk-download/"
+     ]
+    },
+    {
+     "claim": "Prime Video plays at SD (480p) on H713 L3; Amazon Appstore for Android closed 20 Aug 2025.",
+     "verdict": "confirmed",
+     "note": "The HY300 Pro review gives 480p SD, stereo. The L018 review gives SD. The Appstore shutdown on 20 Aug 2025 was for Android phones and tablets only, with Fire devices unaffected, and Amazon gives no guarantee that apps installed from it keep working. Extra: APKMirror snippets show the phone app com.amazon.avod.thirdpartyclient 3.0.459.345 as arm-v7a, Android 9.0+ (June 2026).",
+     "sources": [
+      "https://androidpctv.com/magcubic-hy300-pro-review/",
+      "https://simplehomecinema.com/2025/10/15/magcubic-l018-projector-review-is-it-a-good-value-1080p-projector-under-us100/",
+      "https://9to5google.com/2025/02/20/amazon-appstore-android-shutting-down-2025/",
+      "https://www.apkmirror.com/apk/amazon-mobile-llc/amazon-prime-video/amazon-prime-video-3-0-459-release/amazon-prime-video-3-0-459-345-android-apk-download/"
+     ]
+    },
+    {
+     "claim": "SmartTube: no Google services needed, armeabi-v7a builds, get it only from GitHub or F-Droid because of the Dec 2025 key compromise (30.43-30.47, 30.51; 30.55+ new key).",
+     "verdict": "partly",
+     "note": "Confirmed: the README says 'Does not require Google Services', Android 4.3+, 'Do not download SmartTube from any app store, APK websites or blogs', F-Droid package app.smarttube.fdroid, and the kutt.to links. Releases show stable 32.56 (23 Sep) and beta 32.68 (17 Oct) with armeabi-v7a APKs. The affected range is understated. BleepingComputer gives the developer's estimate of 30.43-30.47, with 30.51 found infected by a user. AhnLab says the malicious library 'has been included since version 30.27'. CyberInsider says 'versions between 28.56 and 30.52' were most affected, and that 30.56 uses a new key and 'installs as a separate application due to the changed package name'. BleepingComputer has the developer saying 30.55+ uses the new key. The claim about the official YouTube TV app needing Google services was not verified.",
+     "sources": [
+      "https://github.com/yuliskov/SmartTube",
+      "https://github.com/yuliskov/SmartTube/releases",
+      "https://bleepingcomputer.com/news/security/smarttube-youtube-app-for-android-tv-breached-to-push-malicious-update",
+      "https://cyberinsider.com/popular-youtube-app-for-android-tv-smarttube-compromised-with-malware/",
+      "https://asec.ahnlab.com/en/91414/"
+     ]
+    },
+    {
+     "claim": "RaiPlay: no evidence on its Google Play Services or Widevine-level needs on uncertified devices.",
+     "verdict": "unverifiable",
+     "note": "This is a 'not found' claim. I did not find any source either. It has to be tested on the device.",
+     "sources": []
+    },
+    {
+     "claim": "microG is possible on rooted Android 11 but gives no streaming benefit and adds risk; skip it.",
+     "verdict": "confirmed",
+     "note": "The microG wiki confirms: FakeGApps (whew-inc fork) supports Android 4.0-15, JingMatrix LSPosed 8.1-16, and patchers work properly only below Android 9. AOSP says 'Plugins are built by vendors or SOC makers and put in a /vendor partition', which supports the point that Widevine is not a GMS component. Play Integrity: a rooted or hooked device gets an empty deviceRecognitionVerdict. An uncertified but unrooted device can still get the opt-in MEETS_BASIC_INTEGRITY. Android Police (Mar 2018) confirms the sign-in block on uncertified devices, but the exemption registers the GSF ID, not the 'Android ID'. The Sailfish post is one user's 'as far as I know'. The 2021 Reddit FakeGApps report was not checked.",
+     "sources": [
+      "https://github.com/microg/GmsCore/wiki/Signature-Spoofing",
+      "https://source.android.com/docs/core/media/drm",
+      "https://developer.android.com/google/play/integrity/verdicts",
+      "https://www.androidpolice.com/2018/03/27/google-confirms-blocking-google-apps-uncertified-android-devices-heres-deal/",
+      "https://forum.sailfishos.org/t/disney-error-code-39-in-4-1-4-2/8200"
+     ]
+    },
+    {
+     "claim": "Netflix through a Chromecast into HDMI is far better: certified, 1080p or 4K up to the panel's limit, TV interface, remote, 5.1/Atmos.",
+     "verdict": "partly",
+     "note": "The specs are confirmed. Google's spec page gives the HD model up to 1080p HDR and the 4K model 4K, Dolby Vision. Netflix's Chromecast page lists 5.1 and Dolby Atmos for Chromecast with Google TV, and says UHD needs HDCP 2.2. But the research's own cited sources did not contain the 'Google says' resolution statement. More importantly, the user never said they own a Chromecast. Chromecast with Google TV was discontinued (announced Aug 2024, removed from Google Store Feb 2025; one report says security updates ran only until Sep 2025), and the replacement is the Google TV Streamer. Since Nov 2025 Netflix no longer allows casting from a phone to Chromecast with Google TV or Google TV Streamer, so you must use the device's own Netflix app and remote. Older cast-only Chromecasts keep casting, reportedly not on ad plans. HDCP on the H713 HDMI input remains undocumented.",
+     "sources": [
+      "https://support.google.com/chromecast/answer/3046409",
+      "https://help.netflix.com/vi/node/23924",
+      "https://androidcentral.com/streaming-tv/the-chromecast-with-google-tv-is-officially-no-longer-available-for-purchase",
+      "https://androidauthority.com/netflix-casting-chromecast-google-tv-streamer-3620784/",
+      "https://heise.de/-11098608"
+     ]
+    }
+   ],
+   "corrected_bottom_line": "The core finding stands. H713 projectors are uncertified and Widevine L3, so the sideloaded Netflix phone app plays at about 540p SD, Disney+ at about 720p and Prime Video at about 480p. The Netflix Android TV app will not run without risky ESN mods that Netflix keeps blocking, and microG cannot help. Check the HY320's actual level in Netflix: My Netflix > Menu > App Settings > Diagnostics > Playback Specification. Do it before and after the cleanup. Corrections: (1) 32-bit is less of a worry than stated. Netflix 9.26.0 (Aug 2025) and 9.38.0 have armeabi-v7a builds, and so do recent Disney+ phone builds (Sep 2026) and Prime Video phone builds (June 2026). Whether the very latest Netflix builds still do is unconfirmed. (2) SmartTube's compromised range is wider than 30.43-30.47. AhnLab says since 30.27, CyberInsider says 28.56-30.52. Install only a current release (30.56+ on the new key, new package name; today 32.56 stable) from GitHub releases or F-Droid, and remove any old-package SmartTube. (3) The Chromecast advice assumes hardware the user hasn't mentioned. If they have a Chromecast with Google TV, use its own Netflix app and remote: Netflix removed phone casting to it in Nov 2025. If they have none, the choice is SD Netflix on the projector or a certified streamer (Chromecast with Google TV is discontinued; the Google TV Streamer replaced it). (4) The iPad AirPlay path cannot carry Netflix: Netflix dropped AirPlay in 2019, and the UxPlay-based receiver does not support DRM content. Only YouTube HLS and unprotected content work through it. Widevine breaking after the cleanup is still a hypothesis to test, not a fact.",
+   "gaps": [
+    {
+     "issue": "The user has not said they own a Chromecast. The recommendation to keep DRM services on the Chromecast depends on that. If they own one, its model matters too: Google TV HD or 4K versus cast-only, because casting rules differ since Nov 2025.",
+     "sources": [
+      "https://androidauthority.com/netflix-casting-chromecast-google-tv-streamer-3620784/",
+      "https://androidcentral.com/streaming-tv/the-chromecast-with-google-tv-is-officially-no-longer-available-for-purchase"
+     ]
+    },
+    {
+     "issue": "AirPlay from the iPad is not a way around DRM. Netflix removed AirPlay support in 2019. UxPlay says Apple video DRM 'cannot be decrypted', and its HLS mode supports only YouTube. The Android AirPlay Server README says DRM content is not supported. Whether Disney+ and Prime Video are blocked through mirroring was not tested.",
+     "sources": [
+      "https://appleinsider.com/articles/19/04/05/netflix-drops-airplay-support-citing-unnamed-technical-limitations",
+      "https://github.com/FDH2/UxPlay",
+      "https://github.com/jqssun/android-airplay-server"
+     ]
+    },
+    {
+     "issue": "APK provenance for Netflix, Disney+ and Prime Video, given the security goal. With no Play Store, the APKs come from a third-party mirror (APKMirror). Before installing over Wi-Fi ADB, compare each APK's signing-certificate fingerprint (apksigner verify --print-certs) with a known-good copy. No official non-Play download channel was found for these apps.",
+     "sources": [
+      "https://www.apkmirror.com/apk/netflix-inc/netflix/netflix-9-38-0-release/netflix-9-38-0-android-apk-download/"
+     ]
+    },
+    {
+     "issue": "Widevine data location. The BadBox drop path is /data/mediadrm/IDM1013/L3/, but on Android 11 with a vendor Widevine HAL the normal path is /data/vendor/mediadrm/IDM1013/L3/. Back up both before the cleanup. Whether the HY320 firmware plants Widevine material (and so needs it) is unknown.",
+     "sources": [
+      "https://github.com/florentineprinzessinzusachsen/badbox-h713-projector",
+      "https://neodyme.io/de/blog/widevine_l3"
+     ]
+    },
+    {
+     "issue": "Identity spoofing. If the HY320 firmware, like the BadBox AT-M269, reports a fake model such as ADT-3 to pass certification, restoring real build properties during the cleanup may change how Netflix and other apps behave. Check getprop ro.product.model / ro.product.manufacturer before and after.",
+     "sources": [
+      "https://github.com/florentineprinzessinzusachsen/badbox-h713-projector"
+     ]
+    },
+    {
+     "issue": "Root and Netflix. Netflix's help page warns that rooted or modified devices may not work properly. No 2025-2026 report of runtime root detection was found, but the Magisk root the plan calls for is a standing risk to Netflix working. Test Netflix playback after rooting.",
+     "sources": [
+      "https://help.netflix.com/en/node/23939",
+      "https://en.androidayuda.com/netflix-blocks-app-root-devices/"
+     ]
+    },
+    {
+     "issue": "Phone builds versus Android TV builds. APKMirror marks Prime Video and Disney+ Android TV builds as requiring Android TV. Whether the HY320 firmware declares the leanback feature, and so which build line will install, is unknown. The phone builds are the safe default.",
+     "sources": [
+      "https://www.apkmirror.com/apk/amazon-mobile-llc/prime-video-android-tv-android-tv/"
+     ]
+    },
+    {
+     "issue": "Native panel resolution is still unsettled for this unit. Listings disagree: Magcubic HY320 is given as 1920x1080 native, while other HY320 listings say 720p. It caps SmartTube and any HDMI source.",
+     "sources": [
+      "https://androidpctv.com/magcubic-hy320-projector/",
+      "https://reach.dog/shop/dami3ccom/products/hy320"
+     ]
+    },
+    {
+     "issue": "Not verified: whether the official YouTube Android TV app needs Google services on an uncertified box, whether Netflix 2026 builds (9.7x-9.8x) still ship armeabi-v7a, the RaiPlay and Mediaset Infinity behaviour, and whether the H713 HDMI input supports HDCP 2.2.",
+     "sources": []
+    }
+   ]
+  }
+ },
+ {
+  "key": "wifiadb",
+  "research": {
+   "bottom_line": "Recommended path (most robust on an Android 11 TV build): keep classic TCP ADB, but force RSA key authentication. First pre-authorize the PC's key while you still have root access. Then set ro.adb.secure=1 with a small Magisk module, stop the authorized key from expiring, and install with `adb install` after checking each APK with apksigner on the PC. With this in place, a stranger on the LAN gets only an \"unauthorized\" connection and an on-screen \"Allow USB debugging?\" prompt, which you deny. No shell. The remaining risk is that legacy ADB traffic is unencrypted, so an attacker already on your LAN could eavesdrop or tamper in transit (AOSP's own docs say this). Encrypted TLS wireless debugging exists in the Android 11 framework and adbd. Google documents it for TV only on Android 13+, though, and the Android 11 TV Settings app has no pairing screen. You can drive it from the shell (`settings put global adb_wifi_enabled 1` plus the pre-seeded key), but it turns itself off when the Wi-Fi network/BSSID changes and uses a random port. Treat it as an optional upgrade, not the default. Fallbacks if you want ADB off entirely: LocalSend (open source, but its Android TV remote handling is buggy), Material Files pulling from an SMB/SFTP share, or the USB stick.\n\nEXACT FLOW (PowerShell on the PC with Google platform-tools and build-tools; do step 1 while you still have the root access used for rooting, ideally over the USB A-A cable):\n1) Pre-seed the PC key (so you cannot lock yourself out):\n   adb push $env:USERPROFILE\\.android\\adbkey.pub /data/local/tmp/pc.pub\n   adb shell \"su -c 'cat /data/local/tmp/pc.pub >> /data/misc/adb/adb_keys; chown system:shell /data/misc/adb/adb_keys; chmod 0640 /data/misc/adb/adb_keys; restorecon /data/misc/adb/adb_keys; rm /data/local/tmp/pc.pub'\"\n   adb shell settings put global adb_allowed_connection_time 0    (stops the framework from removing the key after 7 days without use)\n2) Enforce authentication with a Magisk module /data/adb/modules/adbsecure/ (module.prop plus system.prop containing the line: ro.adb.secure=1). Leave persist.adb.tcp.port=5555 as it is if you want Wi-Fi installs. Reboot.\n3) Verify:\n   adb kill-server; adb connect <ip>:5555; adb devices  -> \"device\"\n   adb shell getprop ro.adb.secure -> 1\n   Negative test: stop the server, rename %USERPROFILE%\\.android to .android.bak, connect again. Expect \"unauthorized\" and an on-screen prompt; deny it. Then stop the server, delete the new .android and rename the backup back.\n   Also scan the projector's ports from the PC to confirm only the expected listeners are open.\n4) Each install:\n   apksigner verify --print-certs -v app.apk   -> must print \"Verifies\"; compare the \"Signer #1 certificate SHA-256 digest\" with the developer's or F-Droid's published value (lowercase, no colons)\n   adb connect <ip>:5555\n   adb install -r app.apk      (pick the armeabi-v7a or universal APK)\n   adb disconnect <ip>:5555\nOptional hardening: give the projector a fixed IP via a DHCP reservation on the router. Turn \"USB debugging\" off in Developer options between sessions, and confirm with a port scan that 5555 actually closes (not verified for this firmware). Optional upgrade to TLS: `adb shell settings put global adb_wifi_enabled 1`, accept the \"Allow wireless debugging on this network / Always allow\" dialog, read the port with `adb shell getprop service.adb.tls.port` or `adb mdns services`, then `adb connect <ip>:<tlsport>`. After that you can remove persist.adb.tcp.port, but check the is_usb fallback described below first.",
+   "findings": [
+    {
+     "claim": "Google documents wireless debugging (adb pair) for TV devices only on Android 13+. Phones get it on Android 11+.",
+     "confidence": "high",
+     "detail": "developer.android.com/tools/adb lists the prerequisite as 'Android 11 (API 30) or higher for phones, or Android 13 (API 33) or higher for TV and Wear OS'. The flow is: Developer options > Wireless debugging > 'Pair using pairing code' (6-digit code, IP, port) > `adb pair ip:port` > enter the code. Pairing happens once, and the device stays paired until you choose Forget or revoke authorizations. QR pairing means the device scans a QR code shown by Android Studio, which is impossible on a projector with no camera. My inference, not confirmed in a source: the 13+ limit for TV is because the Android 11 TvSettings app has no Wireless debugging screen. I could not fetch the TvSettings source to check this.",
+     "sources": [
+      "https://developer.android.com/tools/adb",
+      "https://developer.android.com/about/versions/11/features"
+     ]
+    },
+    {
+     "claim": "The Android 11 framework does contain TLS wireless debugging, and setting Settings.Global adb_wifi_enabled=1 starts it without the Settings UI.",
+     "confidence": "high",
+     "detail": "AdbService (android11-release) registers a ContentObserver on ADB_WIFI_ENABLED and calls setAdbEnabled(shouldEnable, AdbTransportType.WIFI). AdbDebuggingManager then gets the current AP, runs verifyWifiNetwork(), sets persist.adb.tls_server.enable=1, and polls service.adb.tls.port, a random port it waits up to 10 s for. So `adb shell settings put global adb_wifi_enabled 1` works, because the shell user can write global settings. Pairing is the hard part. The 6-digit code is generated by SecureRandom and broadcast for a UI to display. enablePairingByPairingCode / enablePairingByQrCode require MANAGE_DEBUGGING, and I found no shell command that shows the code. Without a pairing UI, use the pre-seeded-key route in the next finding.",
+     "sources": [
+      "https://raw.githubusercontent.com/aosp-mirror/platform_frameworks_base/android11-release/services/core/java/com/android/server/adb/AdbService.java",
+      "https://raw.githubusercontent.com/aosp-mirror/platform_frameworks_base/android11-release/services/core/java/com/android/server/adb/AdbDebuggingManager.java"
+     ]
+    },
+    {
+     "claim": "Being 'paired' just means the host's public key is in /data/misc/adb/adb_keys. A key you add there yourself, or one accepted with 'Always allow', should therefore also work for TLS connections without running adb pair.",
+     "confidence": "medium",
+     "detail": "The AOSP adb_wifi.md doc says a host and device are 'paired if the host's public key is in the device's /data/misc/adb/adb_keys or /adb_keys files'. adbd's TLS check (adbd_tls_verify_cert) compares the client certificate's key against the same key set (adbd_auth_get_public_keys) used for legacy RSA auth, and a successful pairing writes the key into adb_keys. Not tested on this firmware. Also, mDNS auto-connect relies on a GUID learned during pairing, so you have to type `adb connect ip:tlsport` manually.",
+     "sources": [
+      "https://android.googlesource.com/platform/packages/modules/adb/+/refs/heads/main/docs/dev/adb_wifi.md",
+      "https://raw.githubusercontent.com/aosp-mirror/platform_system_core/android11-release/adb/daemon/auth.cpp",
+      "https://android.googlesource.com/platform/packages/modules/adb/+/fdbd8a5f/docs/dev/keystore.md"
+     ]
+    },
+    {
+     "claim": "Wireless debugging turns itself off when Wi-Fi drops or the BSSID changes. Network trust is stored per BSSID, and a network that is not trusted triggers an on-screen confirmation dialog.",
+     "confidence": "high",
+     "detail": "In the AdbDebuggingManager broadcast receiver, Wi-Fi disabled, a disconnect, an empty BSSID, or a BSSID different from the stored one ('Detected wifi network change. Disabling adbwifi.') all set ADB_WIFI_ENABLED back to 0. If the device is not on Wi-Fi when it is enabled, the setting is reset to 0. An untrusted BSSID launches SystemUI's .wifi.WifiDebuggingActivity, which the Android 11 SystemUI manifest declares. 'Always allow' stores the BSSID in adb_temp_keys.xml. Inference: on a dual-band router like the home router, each band has its own BSSID, so roaming between bands would switch debugging off and each BSSID needs its own trust. At boot it re-enables from persist.adb.tls_server.enable, but it gets switched off again if Wi-Fi is not connected yet.",
+     "sources": [
+      "https://raw.githubusercontent.com/aosp-mirror/platform_frameworks_base/android11-release/services/core/java/com/android/server/adb/AdbDebuggingManager.java",
+      "https://raw.githubusercontent.com/aosp-mirror/platform_frameworks_base/android11-release/packages/SystemUI/AndroidManifest.xml",
+      "https://github.com/mouldybread/adb-auto-enable"
+     ]
+    },
+    {
+     "claim": "How unauthenticated port 5555 happens: adbd skips authentication only on a debuggable build (ro.debuggable=1) or an unlocked device (ro.boot.verifiedbootstate=orange), and then only if ro.adb.secure is 0 or missing. The TCP listener comes from service.adb.tcp.port or persist.adb.tcp.port, or from a fallback to 5555 when there is no USB FFS endpoint.",
+     "confidence": "high",
+     "detail": "adbd main.cpp (android11): 'If we're on userdebug/eng or the device is unlocked, permit no-authentication': if (__android_log_is_debuggable() || device_unlocked) auth_required = GetBoolProperty(\"ro.adb.secure\", false). The default is false, so a missing property means no authentication. The port is read from service.adb.tcp.port, then persist.adb.tcp.port. If neither is set and is_usb is false (access(USB_FFS_ADB_EP0) fails), adbd still listens on tcp:DEFAULT_ADB_LOCAL_TRANSPORT_PORT (5555). AOSP's build sets ro.adb.secure=1 only for 'user' builds and ro.debuggable=1 for userdebug/eng. Important consequence: unlocking the bootloader for Magisk can by itself disable authentication if the vendor props lack ro.adb.secure=1, so set it explicitly. A comparable real case is CVE-2026-30495 (Optoma projector: ADB on 5555 with no authentication, ro.adb.secure=0, /system/xbin/su, CVSS 8.8 AV:A).",
+     "sources": [
+      "https://raw.githubusercontent.com/aosp-mirror/platform_system_core/android11-release/adb/daemon/main.cpp",
+      "https://raw.githubusercontent.com/aosp-mirror/platform_build/android11-release/core/main.mk",
+      "https://cveawg.mitre.org/api/cve/CVE-2026-30495"
+     ]
+    },
+    {
+     "claim": "Setting ro.adb.secure=1 with a Magisk module (system.prop or `resetprop -n` in post-fs-data) should take effect before adbd starts, without editing build.prop on vendor/odm/product.",
+     "confidence": "medium",
+     "detail": "Magisk: system.prop entries 'will be loaded as system properties by resetprop'. post-fs-data is blocking and runs before Zygote, and you must use `resetprop -n` there, never setprop, which deadlocks. resetprop also offers -p (persistent) and -d/--delete, for example `resetprop -p -d persist.adb.tcp.port` to close the listener. AOSP init.usb.rc starts adbd only from sys.usb.config property triggers set at 'on boot', which comes after post-fs-data. Vendor .rc files could start it earlier, so after boot check `getprop ro.adb.secure` and do the negative test. If authentication is not enforced, add `stop adbd; start adbd` to service.sh. Editing build.prop on vendor/odm/product works too, but it changes partitions (AVB/dm-verity risk). Prefer the Magisk overlay, which you can remove.",
+     "sources": [
+      "https://topjohnwu.github.io/Magisk/guides.html",
+      "https://topjohnwu.github.io/Magisk/tools.html",
+      "https://raw.githubusercontent.com/aosp-mirror/platform_system_core/android11-release/rootdir/init.usb.rc"
+     ]
+    },
+    {
+     "claim": "Lock-out risk: USB ADB uses the same RSA authentication, so it is not a separate escape route. Pre-seed adb_keys and turn off key expiry before you enforce ro.adb.secure=1.",
+     "confidence": "medium",
+     "detail": "Legacy adbd sends A_AUTH on every transport. Trusted keys come from /adb_keys and /data/misc/adb/adb_keys, and unknown keys go to a framework prompt (SystemUI .usb.UsbDebuggingActivity). Fire TV's documentation confirms the 'Allow USB debugging?' prompt also appears for `adb connect` over the network. If this vendor's SystemUI lacks that dialog, an un-seeded key cannot be approved over USB or Wi-Fi. Keys you add by hand are kept (addUserKeysToKeyStore), but they expire after ADB_ALLOWED_CONNECTION_TIME (default one week without use) unless the setting is 0. Escape routes: the Magisk app (disable the module), `magisk --remove-modules` (needs working ADB), Magisk Safe Mode (needs a volume-down key at boot, uncertain on a projector), or the HY300-family hardware flash mode (paperclip button above HDMI plus a USB A-A cable) with your full eMMC backup or the stock boot image.",
+     "sources": [
+      "https://raw.githubusercontent.com/aosp-mirror/platform_system_core/android11-release/adb/daemon/auth.cpp",
+      "https://android.googlesource.com/platform/packages/modules/adb/+/fdbd8a5f/docs/dev/keystore.md",
+      "https://developer.amazon.com/docs/fire-tv/connecting-adb-to-device.html",
+      "https://topjohnwu.github.io/Magisk/faq.html",
+      "https://androidpctv.com/firmware-magcubic-hy300-allwinner-h713/"
+     ]
+    },
+    {
+     "claim": "Legacy TCP ADB with RSA authentication is authenticated but unencrypted. TLS wireless debugging is encrypted.",
+     "confidence": "high",
+     "detail": "AOSP adb_wifi.md says of the adb tcpip channel: 'all traffic can be eavesdropped and open to MITM attacks'. The legacy socket answers every connection with A_AUTH. The TLS socket starts with A_STLS and encrypts everything. On a home WPA2 LAN, the realistic threat to the legacy path is another device already on the LAN actively intercepting while you are connected. An attacker who only scans gets 'unauthorized'. Limit exposure by keeping ADB off when you are not using it.",
+     "sources": [
+      "https://android.googlesource.com/platform/packages/modules/adb/+/refs/heads/main/docs/dev/adb_wifi.md"
+     ]
+    },
+    {
+     "claim": "LocalSend is a viable open-source way to send APKs without ADB, but it has known problems on Android TV and opens a LAN listener.",
+     "confidence": "medium",
+     "detail": "F-Droid: Apache-2.0, built and signed by the developer (reproducible), armeabi-v7a APK available, min Android 7.0, version 1.18.2 (Aug 2026). It requests install packages, so it can hand a received APK to the system installer, and you still confirm the install. Protocol: TCP/UDP 53317, multicast 224.0.0.167, HTTPS where the fingerprint is the SHA-256 of a self-signed cert. The receiver accepts or rejects each transfer, an optional PIN is available, and the protocol docs mention no MITM protection. Open TV issues: #249 (the OK button cannot confirm incoming transfers), #1264 (cannot control it with an Android TV remote), #3335 (APK fails to install on an HY350max projector).",
+     "sources": [
+      "https://f-droid.org/packages/org.localsend.localsend_app/",
+      "https://github.com/localsend/protocol",
+      "https://github.com/localsend/localsend/issues?q=android+tv",
+      "https://github.com/localsend/localsend/issues/249",
+      "https://github.com/localsend/localsend/issues/3335"
+     ]
+    },
+    {
+     "claim": "Pull-based alternative with no listener on the projector: Material Files (GPL-3.0, built and signed by F-Droid, armeabi-v7a, min Android 6) reads FTP/SFTP/SMB/WebDAV shares and has the install-packages permission.",
+     "confidence": "medium",
+     "detail": "The trade-off is that the projector stores credentials for the share, so use a dedicated read-only account. Android TV usability is not documented. 'Send Files to TV' (yablio): no source repository found, so I treat it as proprietary and do not recommend it. The USB stick is the zero-network fallback.",
+     "sources": [
+      "https://f-droid.org/packages/me.zhanghai.android.files/",
+      "https://www.apkmirror.com/apk/yablio/send-files-to-tv"
+     ]
+    },
+    {
+     "claim": "How to verify an APK on Windows: `apksigner verify --print-certs -v app.apk` (SDK Build Tools 24.0.3+, under build-tools\\<ver>\\), then compare 'Signer #1 certificate SHA-256 digest' with the developer's or F-Droid's published value.",
+     "confidence": "high",
+     "detail": "apksigner prints lowercase hex without colons, so normalize published fingerprints before comparing. Independent cross-checks for F-Droid APKs: (a) f-droid.org/repo/signer-index.json, the official list of signer SHA-256 values, itself signed via entry.json, signer-index.jar and signer-index.json.asc; (b) `gpg --verify <apk>.asc <apk>` against F-Droid's key 37D2 C987 89D8 3119 4839 4E3E 41E7 044E 1DBA 2E89; (c) for developer-signed reproducible apps such as AirPlay Server (io.github.jqssun.airplay 0.0.31, armeabi-v7a, F-Droid apk and .asc), the cert should equal the one on the GitHub release APK. Android itself then requires every update to carry the same cert. On Windows the wrapper is apksigner.bat and needs a Java runtime; the .bat name and the Java requirement are my own knowledge, not from the docs I fetched.",
+     "sources": [
+      "https://developer.android.com/tools/apksigner",
+      "https://support.google.com/android-developer-console/answer/16641489",
+      "https://ente.com/help/auth/faq/android-apk-signature",
+      "https://f-droid.org/docs/All_our_APIs/",
+      "https://f-droid.org/docs/Verifying_Downloaded_APK/",
+      "https://f-droid.org/packages/io.github.jqssun.airplay/",
+      "https://developer.android.com/studio/publish/app-signing"
+     ]
+    },
+    {
+     "claim": "Because the firmware's platform is signed with AOSP test keys, refuse any third-party APK whose signer is the AOSP test DN.",
+     "confidence": "medium",
+     "detail": "AOSP's security README says test keys 'should NEVER be used to sign packages in publicly released images' and gives their DN as /C=US/ST=California/L=Mountain View/O=Android/OU=Android/CN=Android/emailAddress=android@android.com. Inference: if this device's platform cert is the public test key, any APK signed with that key can get platform/system privileges. If apksigner shows that DN, do not install the APK.",
+     "sources": [
+      "https://android.googlesource.com/platform/build/+/refs/heads/main/target/product/security/README"
+     ]
+    },
+    {
+     "claim": "Optional on-demand switch: a Magisk module can include action.sh, which runs when you press the module's Action button in the Magisk app, for example to set or clear service.adb.tcp.port and restart adbd.",
+     "confidence": "medium",
+     "detail": "Magisk guides: action.sh 'will be executed when user click the action button in Magisk app'. Because of the is_usb fallback, clearing the port does not close 5555 if /dev/usb-ffs/adb/ep0 is missing. Stopping adbd, or turning USB debugging off, is what reliably closes it. Not tested; check with a port scan.",
+     "sources": [
+      "https://topjohnwu.github.io/Magisk/guides.html",
+      "https://raw.githubusercontent.com/aosp-mirror/platform_system_core/android11-release/adb/daemon/main.cpp"
+     ]
+    }
+   ],
+   "open_questions": [
+    "What the projector actually reports: getprop ro.build.type, ro.debuggable, ro.boot.verifiedbootstate, ro.adb.secure, persist.adb.tcp.port, service.adb.tcp.port. Also which file or .rc sets them (grep the /system/etc/prop.default, /vendor, /odm and /product build.prop files, plus /vendor/etc/init and /system/etc/init for 'adb').",
+    "Whether this vendor's SystemUI includes .usb.UsbDebuggingActivity and .wifi.WifiDebuggingActivity (adb shell pm dump com.android.systemui, look for 'Debugging'). If either is missing, the prompts never appear and the pre-seeded key is mandatory.",
+    "Whether /dev/usb-ffs/adb/ep0 exists. If not, adbd always falls back to TCP 5555 when no port property is set.",
+    "Whether the vendor's TV settings have a working 'USB debugging' toggle that really stops adbd, closing 5555 (check with a port scan).",
+    "Not tested here: connecting over TLS (adb connect ip:service.adb.tls.port) with a key pre-seeded in adb_keys, without running adb pair, on this Android 11 build.",
+    "Whether the Magisk app (and its module Action button) can be operated with the projector's remote, and whether Magisk Safe Mode can be triggered at all without a hardware volume key.",
+    "Exact menu path for a DHCP reservation on the home router. Not researched."
+   ]
+  },
+  "verify": {
+   "checks": [
+    {
+     "claim": "Google documents wireless debugging (adb pair) for TV only on Android 13+, phones on Android 11+. Pairing is done once and lasts until you Forget it or revoke. QR pairing needs the device to scan a code.",
+     "verdict": "confirmed",
+     "note": "The adb page says: 'Android 11 (API level 30) or higher for phone or Android 13 (API level 33) or higher for TV and WearOS'. The pairing-code steps, the once-only pairing, Forget and Revoke all match. QR pairing is only described as the device scanning a code shown by Android Studio. The research's own guess (the Android 11 TvSettings app has no Wireless debugging screen) remains unverifiable: I found no TvSettings source or Android TV release note.",
+     "sources": [
+      "https://developer.android.com/tools/adb"
+     ]
+    },
+    {
+     "claim": "The Android 11 framework contains TLS wireless debugging, and `settings put global adb_wifi_enabled 1` starts it without the Settings UI. The pairing APIs need MANAGE_DEBUGGING.",
+     "verdict": "confirmed",
+     "note": "AdbService (android11-release) watches ADB_WIFI_ENABLED and calls setAdbEnabled(..., WIFI). AdbDebuggingManager then runs verifyWifiNetwork, sets persist.adb.tls_server.enable=1, and polls service.adb.tls.port for 10 s. enablePairingByPairingCode and enablePairingByQrCode both call enforceCallingOrSelfPermission(MANAGE_DEBUGGING). The pairing code is 6 SecureRandom digits. If Wi-Fi is not connected, the code logs 'Not connected to any wireless network. Not enabling adbwifi.' and resets the setting to 0. Working is not the same as safe: the CVE-2026-0073 check below shows this TLS path is probably exploitable on an unpatched Android 11 build.",
+     "sources": [
+      "https://raw.githubusercontent.com/aosp-mirror/platform_frameworks_base/android11-release/services/core/java/com/android/server/adb/AdbService.java",
+      "https://raw.githubusercontent.com/aosp-mirror/platform_frameworks_base/android11-release/services/core/java/com/android/server/adb/AdbDebuggingManager.java"
+     ]
+    },
+    {
+     "claim": "'Paired' just means the host key is in adb_keys, so a key you pre-seed (or accept with 'Always allow') also works for TLS connections without running adb pair.",
+     "verdict": "partly",
+     "note": "The code path supports it. adb_wifi.md defines paired as the host key being in /data/misc/adb/adb_keys or /adb_keys. Android 11 adbd_tls_verify_cert loops over adbd_auth_get_public_keys. libadbd_auth reads {\"/adb_keys\", \"/data/misc/adb/adb_keys\"} from disk on every call and compares each key with EVP_PKEY_cmp. I found no independent report of connecting to the TLS port without pairing, so this is untested. The same function contains the CVE-2026-0073 logic bug: it tests `if (EVP_PKEY_cmp(...))` for truthiness. The GUID / mDNS auto-connect detail is only partly supported: the doc mentions persist.adb.wifi.guid and auto-connect for previously paired devices.",
+     "sources": [
+      "https://android.googlesource.com/platform/packages/modules/adb/+/refs/heads/main/docs/dev/adb_wifi.md",
+      "https://raw.githubusercontent.com/aosp-mirror/platform_system_core/android11-release/adb/daemon/auth.cpp",
+      "https://android.googlesource.com/platform/frameworks/native/+/refs/heads/android11-release/libs/adbd_auth/adbd_auth.cpp"
+     ]
+    },
+    {
+     "claim": "Wireless debugging turns itself off when Wi-Fi drops or the BSSID changes. Trust is stored per BSSID. An untrusted network triggers SystemUI's WifiDebuggingActivity.",
+     "verdict": "confirmed",
+     "note": "The receiver logs 'Wifi disabled. Disabling adbwifi.', 'Network disconnected. Disabling adbwifi.', 'Unable to get the wifi ap's BSSID. Disabling adbwifi.' and 'Detected wifi network change. Disabling adbwifi.'. Trusted BSSIDs are stored as wifiAP entries in adb_temp_keys.xml. The Android 11 SystemUI manifest declares .wifi.WifiDebuggingActivity and .usb.UsbDebuggingActivity, both guarded by MANAGE_DEBUGGING. The framework starts the dialog through config_customAdbWifiNetworkConfirmationComponent, which a vendor can override. At boot, initAdbState reads persist.adb.tls_server.enable and systemReady writes it back to the setting; that it then switches off when Wi-Fi is not yet up is an inference from the not-connected branch. One cited source, mouldybread/adb-auto-enable, is an Android 14+ tool and does not support any of this; the AOSP code does. Separate BSSIDs per band is an inference.",
+     "sources": [
+      "https://raw.githubusercontent.com/aosp-mirror/platform_frameworks_base/android11-release/services/core/java/com/android/server/adb/AdbDebuggingManager.java",
+      "https://raw.githubusercontent.com/aosp-mirror/platform_frameworks_base/android11-release/services/core/java/com/android/server/adb/AdbService.java",
+      "https://raw.githubusercontent.com/aosp-mirror/platform_frameworks_base/android11-release/packages/SystemUI/AndroidManifest.xml",
+      "https://github.com/mouldybread/adb-auto-enable"
+     ]
+    },
+    {
+     "claim": "Unauthenticated 5555 happens only on a debuggable or unlocked (orange) build with ro.adb.secure 0 or missing. The TCP listener comes from service./persist.adb.tcp.port, or falls back to 5555 when there is no USB FFS. Unlocking for Magisk can disable authentication by itself.",
+     "verdict": "confirmed",
+     "note": "main.cpp has `if (__android_log_is_debuggable() || device_unlocked) auth_required = GetBoolProperty(\"ro.adb.secure\", false);`, where device_unlocked means ro.boot.verifiedbootstate == orange. auth.cpp sets the global `bool auth_required = true;` by default. A port property opens tcp and vsock listeners even when USB exists. The 5555 default only applies in the `else if (!is_usb)` branch. Missing detail: service.adb.listen_addrs overrides both. main.mk sets ro.adb.secure=1 only for 'user' builds and ro.debuggable=1 when enable_target_debugging. CVE-2026-30495 checks out: Optoma CinemaX P2, Android 8, network ADB without authentication plus su, CVSS 8.8 AV:A.",
+     "sources": [
+      "https://raw.githubusercontent.com/aosp-mirror/platform_system_core/android11-release/adb/daemon/main.cpp",
+      "https://raw.githubusercontent.com/aosp-mirror/platform_system_core/android11-release/adb/daemon/auth.cpp",
+      "https://raw.githubusercontent.com/aosp-mirror/platform_build/android11-release/core/main.mk",
+      "https://cveawg.mitre.org/api/cve/CVE-2026-30495"
+     ]
+    },
+    {
+     "claim": "A Magisk system.prop line (or resetprop -n in post-fs-data) setting ro.adb.secure=1 takes effect before adbd starts.",
+     "verdict": "partly",
+     "note": "Magisk docs confirm that system.prop entries are 'loaded as system properties by resetprop', that post-fs-data is BLOCKING and runs before Zygote, and that setprop there deadlocks so resetprop -n must be used. They also confirm resetprop -p, -d/--delete and magisk --remove-modules. The docs do not say when system.prop is applied relative to post-fs-data, and I found no primary source that does. AOSP init.usb.rc starts adbd (class core, disabled) only through sys.usb.config property triggers, which get set at 'on boot', after post-fs-data, so the ordering is plausible on AOSP. Vendor .rc files on Allwinner builds are unverified. The research's post-boot getprop check and negative test are the right mitigation.",
+     "sources": [
+      "https://topjohnwu.github.io/Magisk/guides.html",
+      "https://topjohnwu.github.io/Magisk/tools.html",
+      "https://raw.githubusercontent.com/aosp-mirror/platform_system_core/android11-release/rootdir/init.usb.rc"
+     ]
+    },
+    {
+     "claim": "Lock-out risk: USB uses the same RSA auth. Pre-seed adb_keys and disable key expiry first. Escape routes: Magisk app, --remove-modules, Safe Mode (volume-down), HY300 flash button above HDMI with an A-A cable.",
+     "verdict": "confirmed",
+     "note": "Key expiry checks out. Keys from the user adb_keys file are added to the keystore by addUserKeysToKeyStore and then expire (`allowedTime != 0 && systemTime > connectionTime + allowedTime`). Value 0 means they never expire, and keys in the system /adb_keys file are exempt. The default is 604800000 ms (7 days since last use), per a secondary source and keystore.md. AOSP writes adb_keys with mode 0640, which matches the chmod. Amazon's Fire TV docs: 'The first time you run adb connect, Fire TV will show a screen that says \"Allow USB debugging?\"'. Magisk FAQ: hold volume-down before the boot animation for Safe Mode, or run magisk --remove-modules over ADB. androidpctv confirms an A-A cable plus a paperclip on the flash button above HDMI. Extra point: if no framework connects to adbd's socket, prompts are queued and never shown (adbd_auth.cpp), so pre-seeding is mandatory when the vendor SystemUI lacks the dialog. 'A_AUTH on every transport' was not shown verbatim in the files I fetched.",
+     "sources": [
+      "https://raw.githubusercontent.com/aosp-mirror/platform_frameworks_base/android11-release/services/core/java/com/android/server/adb/AdbDebuggingManager.java",
+      "https://android.googlesource.com/platform/packages/modules/adb/+/fdbd8a5f/docs/dev/keystore.md",
+      "https://git.replicant.us/replicant-next/packages_apps_Settings/tree/src/com/android/settings/development/AdbAuthorizationTimeoutPreferenceController.java",
+      "https://community.getchannels.com/t/adbtuner-a-channel-tuning-application-for-networked-google-tv-android-tv-devices/36822/1304",
+      "https://developer.amazon.com/docs/fire-tv/connecting-adb-to-device.html",
+      "https://topjohnwu.github.io/Magisk/faq.html",
+      "https://androidpctv.com/firmware-magcubic-hy300-allwinner-h713/",
+      "https://android.googlesource.com/platform/frameworks/native/+/refs/heads/android11-release/libs/adbd_auth/adbd_auth.cpp"
+     ]
+    },
+    {
+     "claim": "Legacy TCP ADB with RSA auth is authenticated but unencrypted. TLS wireless debugging is encrypted.",
+     "verdict": "partly",
+     "note": "The encryption half is right. adb_wifi.md: 'all traffic can be eavesdropped and open to MITM attacks' for tcpip, and the TLS socket 'opens communication with A_STLS'. The implied conclusion, that TLS is the safer upgrade, does not hold on this device. Android 11's TLS client check carries the CVE-2026-0073 authentication bypass (next check), so on an unpatched Android 11 build the encrypted TLS path is the less trustworthy one.",
+     "sources": [
+      "https://android.googlesource.com/platform/packages/modules/adb/+/refs/heads/main/docs/dev/adb_wifi.md"
+     ]
+    },
+    {
+     "claim": "Enabling TLS wireless debugging (adb_wifi_enabled=1) on this Android 11 projector is a safe optional upgrade. Implied by the research's bottom line.",
+     "verdict": "refuted",
+     "note": "CVE-2026-0073 (May 2026 bulletin, Critical, adbd Mainline component, A-469080888) is an adjacent-network shell-level bypass of wireless ADB mutual authentication with no user interaction. The fix commit 842d331f is titled 'Fix EVP_PKEY_cmp usage', with the message 'Not all non-zero values mean success.' Android 11's adbd_tls_verify_cert contains exactly `if (EVP_PKEY_cmp(known_evp.get(), evp_pkey.get()))`. BoringSSL returned -1 for mismatched key types until commit 3975388935 (January 2026). Per the Barghest write-up, an EC or Ed25519 client certificate therefore matches a stored RSA key, and the precondition is at least one RSA key in /data/misc/adb/adb_keys, which the plan pre-seeds. The bulletin lists only Android 14 to 16 because 11 is out of support, and this projector will never get the patched adbd APEX. Inference from code, not tested on the device. The legacy A_AUTH path on 5555 is a different code path, and Barghest says the vulnerable verifier is reached only when the device answers STLS.",
+     "sources": [
+      "https://source.android.com/docs/security/bulletin/2026/2026-05-01",
+      "https://android.googlesource.com/platform/packages/modules/adb/+/842d331f9e5fb10770a09379e19240daea057dba",
+      "https://raw.githubusercontent.com/aosp-mirror/platform_system_core/android11-release/adb/daemon/auth.cpp",
+      "https://boringssl.googlesource.com/boringssl/+/3975388935512ea017024973924cfaf06f5b7822",
+      "https://barghest.asia/blog/cve-2026-0073-adb-tls-auth-bypass/",
+      "https://db.gcve.eu/vuln/CVE-2026-0073"
+     ]
+    },
+    {
+     "claim": "LocalSend is a viable open-source way to send APKs but is buggy on Android TV and opens a LAN listener.",
+     "verdict": "confirmed",
+     "note": "F-Droid: Apache-2.0, 1.18.2 (August 2026), armeabi-v7a APK, Android 7.0+, REQUEST_INSTALL_PACKAGES and run-at-startup, 'built and signed by the original developer'. Reproducibility is only linked, not stated. Protocol: port 53317, multicast 224.0.0.167, fingerprint is the SHA-256 of the cert, ?pin= option, and MITM is never mentioned. The download API uses plain HTTP. Issues #249 (OK button cannot accept transfers), #1264 (cannot control it with an Android TV remote; crash on Fire TV) and #3335 (APK does not install on an HY350max projector running Android TV 14) are all open with no fix. A 'Quick Save' auto-accept mode exists per a third-party page and could sidestep the OK-button bug, but it accepts unprompted transfers. Unverified on TV.",
+     "sources": [
+      "https://f-droid.org/packages/org.localsend.localsend_app/",
+      "https://github.com/localsend/protocol",
+      "https://github.com/localsend/localsend/issues/249",
+      "https://github.com/localsend/localsend/issues/1264",
+      "https://github.com/localsend/localsend/issues/3335",
+      "https://www.raycast.com/kud/localsend"
+     ]
+    },
+    {
+     "claim": "Material Files (GPL-3.0, F-Droid-signed, armeabi-v7a, Android 6+) reads FTP/SFTP/SMB/WebDAV shares and has the install-packages permission.",
+     "verdict": "confirmed",
+     "note": "F-Droid: GPL-3.0-or-later, 1.7.5 (September 2026), 'built and signed by F-Droid', arm64/armeabi-v7a/x86/x86_64, Android 6.0+, FTP/SFTP/SMB/WebDAV, REQUEST_INSTALL_PACKAGES. Android TV is not mentioned, so remote usability is unknown.",
+     "sources": [
+      "https://f-droid.org/packages/me.zhanghai.android.files/"
+     ]
+    },
+    {
+     "claim": "Verify APKs with `apksigner verify --print-certs -v` (build-tools 24.0.3+) and compare the SHA-256 digest. Cross-check with F-Droid's signer-index.json or gpg using key 37D2 C987 ... 2E89. AirPlay Server 0.0.31 is developer-signed.",
+     "verdict": "confirmed",
+     "note": "The apksigner docs confirm 24.0.3+ and the --print-certs and -v options. The docs never mention a 'Verifies' output line, and the research itself marks the Java requirement as unsourced. ente's FAQ shows the 'Signer #1 certificate SHA-256 digest:' line in lowercase hex without colons. The F-Droid GPG fingerprint and the gpg --verify command are confirmed, as is signer-index.json signed via entry.json, the .jar and the .asc. AirPlay Server on F-Droid is 0.0.31 (August 2026), armeabi-v7a, 'built and signed by the original developer', GPL-3.0-only, Android 7.0+, but the page does not list the cert SHA-256. The GitHub releases have already moved on to v0.0.32 through v0.0.36 (16 to 19 October), so F-Droid lags. That GitHub and F-Droid builds carry the same cert has not been checked.",
+     "sources": [
+      "https://developer.android.com/tools/apksigner",
+      "https://ente.com/help/auth/faq/android-apk-signature",
+      "https://f-droid.org/docs/Verifying_Downloaded_APK/",
+      "https://f-droid.org/docs/All_our_APIs/",
+      "https://f-droid.org/packages/io.github.jqssun.airplay/",
+      "https://github.com/jqssun/android-airplay-server/releases"
+     ]
+    },
+    {
+     "claim": "Refuse any third-party APK whose signer DN is the AOSP test DN, because the platform test key gives platform privileges.",
+     "verdict": "partly",
+     "note": "The README quote and the DN are confirmed. Platform-cert abuse is real: Google's APVI disclosure of leaked OEM platform certificates says an app signed with the platform cert can request android.uid.system. The DN test is weak, though. The same DN is used for all five test keys (testkey, platform, shared, media, cts_uicc_2021), and anyone can put that DN on their own self-made cert. The correct check compares the APK's cert SHA-256 with the device's platform cert (from the 'android' package) or with the published AOSP test-key digests.",
+     "sources": [
+      "https://android.googlesource.com/platform/build/+/refs/heads/main/target/product/security/README",
+      "https://www.bleepingcomputer.com/news/security/samsung-lg-mediatek-certificates-compromised-to-sign-android-malware/amp/"
+     ]
+    },
+    {
+     "claim": "A Magisk action.sh can toggle the ADB port. Because of the is_usb fallback, clearing the port does not close 5555; stopping adbd or turning USB debugging off does.",
+     "verdict": "confirmed",
+     "note": "Magisk: action.sh 'will be executed when user click the action button in Magisk app'. main.cpp confirms the fallback is gated on !is_usb. AOSP AdbService.stopAdbd() runs ctl.stop adbd only when both USB and Wi-Fi ADB are disabled, which supports 'turn USB debugging off'. Vendor behavior is untested.",
+     "sources": [
+      "https://topjohnwu.github.io/Magisk/guides.html",
+      "https://raw.githubusercontent.com/aosp-mirror/platform_system_core/android11-release/adb/daemon/main.cpp",
+      "https://raw.githubusercontent.com/aosp-mirror/platform_frameworks_base/android11-release/services/core/java/com/android/server/adb/AdbService.java"
+     ]
+    },
+    {
+     "claim": "DHCP reservation on the home router (listed as an open question, not researched).",
+     "verdict": "confirmed",
+     "note": "ASUS FAQ 1000906, 'How to manually assign LAN IP around the DHCP list': web GUI LAN > DHCP Server, manual assignment; app path Settings > LAN > IP Binding. The IP must be inside the DHCP pool. Menu names vary by firmware.",
+     "sources": [
+      "https://www.asus.com/support/FAQ/1000906"
+     ]
+    }
+   ],
+   "corrected_bottom_line": "Keep classic TCP ADB on 5555 and enforce RSA authentication. The steps:\n1. While unauthenticated root ADB still works, add the PC's adbkey.pub to /data/misc/adb/adb_keys (system:shell, mode 0640, restorecon). Then run `settings put global adb_allowed_connection_time 0` so the key never expires.\n2. Set ro.adb.secure=1 with a removable Magisk module (system.prop).\n3. Check after boot: `getprop ro.adb.secure` returns 1, a known key gets \"device\", and a fresh key gets \"unauthorized\". Port-scan the projector to see what is listening.\n4. Run apksigner on every APK and compare the SHA-256 digest with F-Droid or the developer before `adb install`.\n\nThis is supported by the Android 11 adbd and framework source. Two warnings that show it actually works on this firmware (ro.adb.secure reads 1 and a fresh key gets \"unauthorized\") are the ones to watch.\n\nCorrection to the research: do NOT use the \"optional TLS upgrade\" on this device. Do not set adb_wifi_enabled=1, and make sure persist.adb.tls_server.enable stays 0. Android 11's adbd TLS check has the same EVP_PKEY_cmp bug that CVE-2026-0073 fixed only on Android 14 to 16. With a key already in adb_keys, which the plan adds, any device on the LAN could probably get a shell with no prompt. The projector will never receive the fixed adbd.\n\nLegacy ADB is authenticated but not encrypted, and every unknown host pops an \"Allow USB debugging?\" dialog that one accidental OK press would approve forever. So it is better to keep ADB off between install sessions and confirm with a port scan that 5555 really closes. The PC's %USERPROFILE%\\.android\\adbkey is now a master key to the projector: anyone holding it can get a shell, so protect it.\n\nThe home router is on ASUS's end-of-life list and gets no more firmware. Use a DHCP reservation (LAN > DHCP Server, ASUS FAQ 1000906), keep 5555 out of any port forward, and turn off UPnP and remote WAN admin.\n\nFallbacks: the USB stick (zero network), or Material Files pulling from a read-only SMB share. LocalSend has open, unfixed Android TV remote bugs, including one HY-series projector where it would not install.",
+   "gaps": [
+    {
+     "issue": "CVE-2026-0073 on Android 11 has not been tested on the device. The conclusion rests on matching code plus the old BoringSSL return values. Also unknown: whether this firmware has persist.adb.tls_server.enable=1 or a vendor 'Network debugging' toggle that starts the TLS server or sets persist.adb.tcp.port. Check with getprop, port-scan for a random high port, and run `adb mdns services`.",
+     "sources": [
+      "https://raw.githubusercontent.com/aosp-mirror/platform_system_core/android11-release/adb/daemon/auth.cpp",
+      "https://source.android.com/docs/security/bulletin/2026/2026-05-01"
+     ]
+    },
+    {
+     "issue": "The on-screen authorization prompt is attack surface. Any LAN host can trigger 'Allow USB debugging?'. It is unknown which button the dialog focuses by default with a TV remote, and whether the vendor SystemUI shows it at all. If the dialog is missing, prompts queue unanswered and the pre-seeded key is the only way in.",
+     "sources": [
+      "https://developer.amazon.com/docs/fire-tv/connecting-adb-to-device.html",
+      "https://android.googlesource.com/platform/frameworks/native/+/refs/heads/android11-release/libs/adbd_auth/adbd_auth.cpp"
+     ]
+    },
+    {
+     "issue": "When Magisk loads system.prop compared with when adbd starts on this Allwinner H713 build is not documented. A vendor init .rc could start adbd before post-fs-data. Only the on-device getprop and negative tests can settle it.",
+     "sources": [
+      "https://topjohnwu.github.io/Magisk/guides.html",
+      "https://raw.githubusercontent.com/aosp-mirror/platform_system_core/android11-release/rootdir/init.usb.rc"
+     ]
+    },
+    {
+     "issue": "The home router is end-of-life with no firmware updates. That makes the 'attacker already on the LAN' threat to unencrypted ADB, and to AirPlay's own listener, more realistic. A guest network with intranet access blocked would isolate the projector but also cut off ADB from the PC and AirPlay from the iPad. Not researched: UPnP, WPS and WAN-admin defaults on this model.",
+     "sources": [
+      "https://www.asus.com/event/network/EOL-product"
+     ]
+    },
+    {
+     "issue": "AirPlay Server: F-Droid has 0.0.31 while GitHub has v0.0.36 (19 Oct 2026). F-Droid's page does not list the signer SHA-256. Get it from F-Droid's signed index and confirm that GitHub release APKs carry the same cert, and that one of the 4 assets per release is armeabi-v7a or universal, before sideloading from GitHub.",
+     "sources": [
+      "https://f-droid.org/packages/io.github.jqssun.airplay/",
+      "https://github.com/jqssun/android-airplay-server/releases"
+     ]
+    },
+    {
+     "issue": "Not covered by this research but central to the user's goal: whether Netflix and similar DRM apps will run on an unlocked-bootloader, Magisk-rooted, test-key Android 11 projector (Widevine level, Play Integrity, Netflix device certification). Unverified."
+    },
+    {
+     "issue": "Whether a USB A-A ADB connection works for the initial key seeding on the HY320 is not verified. androidpctv only documents A-A for the flash tool.",
+     "sources": [
+      "https://androidpctv.com/firmware-magcubic-hy300-allwinner-h713/"
+     ]
+    }
+   ]
+  }
+ },
+ {
+  "key": "features",
+  "research": {
+   "bottom_line": "On these projectors most features come from vendor apps that are not malicious, and the hardware work happens below them, in native services, the HAL (hardware layer) and the kernel. A cleaned build can keep feature parity if it keeps one small group of vendor packages and deletes the malware and cast stack.\n\n**Keep (and block their network access where you can):**\n- HDMI: com.softwinner.awsource (source picker), com.softwinner.awlivetv (viewer) and com.softwinner.vis (input service).\n- com.softwinner.awmanager (Allwinner system manager).\n- Focus: com.hysd.vafocus and com.htc.closedialog. Both are harmless on the HY320, which has manual focus.\n- com.htc.htcbluetoothremotecontrol, only if your remote is Bluetooth.\n- AOSP Settings (com.android.settings on H713 builds), plus the native tvserver, display HAL and IR keylayout.\n- The stock vendor launcher: keep it installed but not as the default home screen. On H713 it is the only interface for 4-corner keystone, flip/ceiling/rear and initial angle. Saved keystone values survive with it disabled; the vendor apps above need no internet.\n\n**Replace with open-source apps:**\n- Home screen: FLauncher (GPL-3.0) instead of the vendor launcher. Projectivy is the community default but proprietary.\n- File manager: Material Files (GPL-3.0) instead of HiFileManager.\n- Casting: AirPlay Server (io.github.jqssun.airplay, GPL-3.0) instead of the vendor AirPlay/toofifi/mphotool/samescreen stack.\n- Keystone menu: a small app_process helper can call the display HAL directly, without the vendor launcher. This is proven only on an H726 / Android 14 unit.\n\n**Delete:**\n- Malware and OTA updaters: storeos, eventuploadservice, expandsdk, htcotaupdate, silentsdk, writesn, bootstart, screensaver SDK, the softwinner/L010/Rockchip updaters, hyk_test and huawei.connection.\n- The whole toofifi/mphotool/samescreen cast stack, the factory menu, the memory cleaner and the office suite.\n- The root binaries: qw, hotacksu and the setuid /system/bin/wifi.\n- Keep com.softwinner.miracastReceiver only if you want Miracast from Windows (Win+K).\n\nThe biggest open question is the HY320's own package list. Run `pm list packages -f` on the projector and check which of the launcher variants it ships.",
+   "findings": [
+    {
+     "claim": "The HY320 has manual focus (lens ring) and auto keystone. The HY320F (electric focus) and HY320 Pro (autofocus) are different models.",
+     "confidence": "high",
+     "detail": "Magcubic's comparison table lists HY320, HY320 mini and HY320NTV as 'Manual focus', keystone 'Auto', Android 11, AW869A Wi-Fi 6, which matches the product sheet. A search snippet from Magcubic's product page describes the HY320F as having electronic focus, and Magcubic's HY320 Pro setup guide describes autofocus. Versus.com claims motorised focus, but it conflicts with Magcubic and is old. com.hysd.vafocus ('autofocus motor control') therefore has no motor to drive on a plain HY320. It is harmless to keep and loses nothing if removed. Check the exact model name on the label, and note that one XDA post describes an RK3326-based HY320 Mini.",
+     "sources": [
+      "https://www.magcubic.com/pages/compare-magcubic-projectors",
+      "https://www.magcubic.com/products/magcubic-projector-hy320f",
+      "https://www.magcubic.com/blogs/about-projector/hy320-pro-setup-how-to-guide",
+      "https://github.com/well0nez/magcubic-root",
+      "https://xdaforums.com/t/request-corrupted-hy320-mini-projector-need-stock-firmware-recovery-img-file.4782692/"
+     ]
+    },
+    {
+     "claim": "Keystone: the keystone screen lives in the vendor launcher APK, but the correction itself is done by the vendor display HAL / composer and stored in system properties. Another app can therefore drive it, and settings survive with the launcher disabled.",
+     "confidence": "medium",
+     "detail": "On an H726 / Android 14 HY300 Pro, the launcher sends 4 corner points to the HAL via a HIDL call: `vendor.display.config@1.0::IDisplayConfig` (instance 'default'), transaction 36. The values are saved as `persist.display.keystone_{ltx,lty,rtx,rty,lbx,lby,rbx,rby}` plus `keystone_zoom_h/v`, and the composer re-applies them at boot. The battleof3 project replaces the menu with `app_process` + keystone.dex (Keystone.java), tested only on build Projector.20260318.111759. On H713 HY300 Pro (LuminaOS), disabling com.htc.luminaos keeps 'basic keystone correction' but removes the advanced vertical-correction UI. That is consistent with the composer re-applying saved values, but the H713 HAL name and transaction number are not verified. Per the lolmam research, /oem/config.ini has flags `autoKeystone` (accelerometer-based) and `manualKeystone` (shows the 4-corner screen). Which process runs auto keystone from the g-sensor on H713 was not found; it may be the launcher (magcubicos has InitAngleActivity). Removing the launcher could stop auto keystone.",
+     "sources": [
+      "https://github.com/battleof3/magcubic-h726-cleanup",
+      "https://raw.githubusercontent.com/battleof3/magcubic-h726-cleanup/main/keystone/src/hy300/Keystone.java",
+      "https://gist.github.com/probonopd/3ad6b7777caea1503f00d5fe7710ad06",
+      "https://github.com/lolmam/HY300-H713-Research/blob/main/OEM/CUSTOMIZATION.md",
+      "https://github.com/maximilian-sh/hy350max-badbox-removal"
+     ]
+    },
+    {
+     "claim": "Projection settings (flip front/rear/ceiling, keystone, initial angle) are activities inside the vendor launcher package. The advice is to keep that package installed and switch the default home screen, not delete it.",
+     "confidence": "high",
+     "detail": "com.htc.magcubicos contains CorrectionActivity (keystone), ProjectActivity (projection mode), InitAngleActivity and .activity.settings.*. The maximilian guide warns not to delete MagcubicOS.apk and to use `cmd package set-home-activity` for another launcher instead. com.htc.luminaos (HY300 Pro / L018) has `.activity.ProjectActivity` and the keystone UI. The manual describes Flip with 4 modes (front table/ceiling, back table/ceiling) under System Settings. The lower-level mechanism for flip (property, HAL or sysfs) was NOT found. Assume the vendor UI is needed to change it, and that the value then persists. well0nez marks magcubicos/luminaos 'Keep if you need projector alignment tools'. battleof3 disables magcubicos only after a working keystone replacement.",
+     "sources": [
+      "https://github.com/maximilian-sh/hy350max-badbox-removal",
+      "https://gist.github.com/probonopd/3ad6b7777caea1503f00d5fe7710ad06",
+      "https://github.com/well0nez/magcubic-root",
+      "https://github.com/battleof3/magcubic-h726-cleanup",
+      "https://manuals.plus/magcubic/hy300-portable-projector-manual"
+     ]
+    },
+    {
+     "claim": "Launcher variants: com.htc.luminaos, com.htc.magcubicos and com.htc.htclauncherhighenglishd08. The last one is labelled malicious, the other two are vendor UI with analytics.",
+     "confidence": "medium",
+     "detail": "micha102 and the probonopd gist say htclauncherhighenglishd08 contacts shortx.srafx.com (a video-shorts site) and imasdk.googleapis.com, and should be removed only after installing another launcher plus an HDMI shortcut. The micha102 README says it was generated with DeepSeek. maximilian-sh lists it as malicious ('referenced, delete if present'). battleof3 says magcubicos bundles Baidu analytics but keeps it until a replacement keystone works. The guides warn to install a replacement launcher BEFORE disabling the stock one, or you are left with no home screen and must reflash. Which variant the HY320 ships: not found.",
+     "sources": [
+      "https://github.com/micha102/hy300pro-debloat",
+      "https://gist.github.com/probonopd/3ad6b7777caea1503f00d5fe7710ad06",
+      "https://github.com/maximilian-sh/hy350max-badbox-removal",
+      "https://github.com/battleof3/magcubic-h726-cleanup",
+      "https://xdaforums.com/t/guide-remove-bloatware-from-your-magcubic-hy300-and-400-series-projector.4790889/"
+     ]
+    },
+    {
+     "claim": "HDMI input is handled by Allwinner (softwinner) packages, not by the malicious set: com.softwinner.awsource (picker), com.softwinner.awlivetv (viewer) and com.softwinner.vis (input service, HdmiInputService), sitting on the Android TV-input framework.",
+     "confidence": "high",
+     "detail": "`am start -n com.softwinner.awlivetv/.MainActivity` opens HDMI on H713 (gist, micha102). On H726, battleof3 adds `--es input_source HDMI2`, because the driver registers 3 inputs and only one is wired; check with `dumpsys tv_input | grep HdmiInputService`. Projectivy's 'Inputs' entries cannot open HDMI, because the firmware does not handle the standard TV-passthrough intent. Use awsource or an explicit awlivetv shortcut instead. Removing any of the three breaks HDMI. No source reports network behaviour for them.",
+     "sources": [
+      "https://gist.github.com/probonopd/3ad6b7777caea1503f00d5fe7710ad06",
+      "https://github.com/micha102/hy300pro-debloat",
+      "https://github.com/battleof3/magcubic-h726-cleanup",
+      "https://raw.githubusercontent.com/battleof3/magcubic-h726-cleanup/main/magisk/hy300-clean/remote-buttons.sh"
+     ]
+    },
+    {
+     "claim": "Picture and sound settings are carried out by the native tvserver and picture-quality (PQ) config files, with screens in the vendor settings or launcher UI. Wi-Fi and Bluetooth use the stock AOSP Settings, which has no launcher icon.",
+     "confidence": "medium",
+     "detail": "battleof3 (H726): the vendor Picture and Focus screens live in TV Settings (com.android.tv.settings/.MainSettings). Picture settings persist only if tvserver can write /oem (panel_config.ini rules). On H713 HY310/L018, Settings is com.android.settings with no launcher intent-filter; open it with `am start -n com.android.settings/.Settings` or a launcher shortcut. config.ini flags `network`/`bluetooth` control those menus. The setup wizard (com.htc.htcsetup_wizard_*, HTC_Wizard_QZ) should be disabled only after `device_provisioned` and `user_setup_complete` are both 1. Exact H713 picture-settings package: not found.",
+     "sources": [
+      "https://github.com/battleof3/magcubic-h726-cleanup",
+      "https://github.com/well0nez/magcubic-root",
+      "https://github.com/lolmam/HY300-H713-Research/blob/main/OEM/CUSTOMIZATION.md"
+     ]
+    },
+    {
+     "claim": "Remote control: IR is decoded by the kernel (sunxi-ir, rc_map_sunxi) and mapped through a keylayout file. The Bluetooth remote uses the vendor app com.htc.htcbluetoothremotecontrol, which should be kept if the remote is Bluetooth.",
+     "confidence": "medium",
+     "detail": "H713 dmesg shows 'Registered IR keymap rc_map_sunxi', device sunxi-ir at .../7040000.s_cir. On H726 the keylayout is /oem/usr/keylayout/sunxi-ir.kl. The input and cast buttons send vendor keycodes PRJ_AIRPLAY (643) and PRJ_MIRACAST (642), and the mouse key sends 10009. Once the vendor cast apps are gone, battleof3 comments those lines out and remaps the buttons with a getevent script. maximilian lists sunxi-ir, cir_param (DTB) and ble_remote/bt_remote as needed for the remote. battleof3 keeps com.htc.htcbluetoothremotecontrol ('Remote service'). Netflix: com.android.nfx is a Netflix D-pad accessibility helper with no INTERNET permission on one H713 firmware (florentine). On H726 a vendor hook in services.jar force-enables it, and battleof3 removed it. Test Netflix navigation before deleting nfx.",
+     "sources": [
+      "https://gist.github.com/probonopd/3ad6b7777caea1503f00d5fe7710ad06",
+      "https://github.com/battleof3/magcubic-h726-cleanup",
+      "https://github.com/maximilian-sh/hy350max-badbox-removal",
+      "https://github.com/florentineprinzessinzusachsen/badbox-h713-projector"
+     ]
+    },
+    {
+     "claim": "Vendor screen mirroring is all suspect or phone-home code and can be replaced: com.android.toofifi, com.toofifi.lineserver, com.toofifi.miracast, com.mphotool.usbcastserver/USBCastServer/iOSUsbCastServer/htc_cast, com.mphotool.airplay (AirPlayServer), com.mphotool.dlna (FtDlnaNoUi) and com.htc.samescreen.",
+     "confidence": "high",
+     "detail": "well0nez says toofifi phones home to China and that AirPlay ports 7000/7002/9528 and Audio HAL port 14035 are bound to 0.0.0.0. florentine reports phone-home to server.mphotool.com:8680 and log uploads. maximilian reports that mphotool AirPlay/DLNA need activation from server.mphotool.com, stored in `settings global ft_activated_data`, and that samescreen opens the cloud session. All of these are user-space apps, not HALs. For the iPad, use io.github.jqssun.airplay (GPL-3.0, Android 7+, H.264/H.265 mirroring, same subnet, no DRM). Disable the vendor AirPlay so the iPad sees only one receiver; this is my inference. com.softwinner.miracastReceiver (Allwinner) is the only path for Windows Win+K / Miracast; no phone-home is reported for it, but none was ruled out either.",
+     "sources": [
+      "https://github.com/well0nez/magcubic-root",
+      "https://github.com/florentineprinzessinzusachsen/badbox-h713-projector",
+      "https://github.com/maximilian-sh/hy350max-badbox-removal",
+      "https://github.com/battleof3/magcubic-h726-cleanup",
+      "https://github.com/jqssun/android-airplay-server"
+     ]
+    },
+    {
+     "claim": "The file manager, media viewer, memory cleaner, screensaver and office apps are plain vendor bloat or SDK hosts, and open-source apps replace them.",
+     "confidence": "medium",
+     "detail": "The H713 /product/app listing includes HiFileManager, Gallery2 (AOSP), ClearMemory, ScreenSaverQZ, HtcOfficeSuite, Browser2, BluetoothSpeaker, LatinIME, webview and ModuleMetadata. battleof3 disables com.htc.clearmemory and com.mobisystems.office (it intercepts content:// links), and removes com.htc.screensaver, the host for the com.hotack.screensaversdk payload. Material Files (GPL-3.0, Android 5+, SMB/FTP/WebDAV, root) can replace HiFileManager. Keep webview (System WebView, which apps need), LatinIME and ModuleMetadata. BluetoothSpeaker (projector as a Bluetooth speaker) is optional; nothing malicious is reported for it.",
+     "sources": [
+      "https://gist.github.com/probonopd/3ad6b7777caea1503f00d5fe7710ad06",
+      "https://github.com/battleof3/magcubic-h726-cleanup",
+      "https://github.com/zhanghai/MaterialFiles"
+     ]
+    },
+    {
+     "claim": "The boot animation and splash screen are plain files on the /oem partition, with no app behind them.",
+     "confidence": "medium",
+     "detail": "/oem/media/bootanimation.zip (stored zip, desc.txt + frames) takes priority over /system/media/bootanimation.zip, and /oem/bootlogo.bmp (1280x720, 24-bit) is the U-Boot splash. /oem/customer.prop overrides build.prop. It sets names such as ro.miracast.name and an OTA channel. Deleting packages does not affect the boot animation.",
+     "sources": [
+      "https://github.com/lolmam/HY300-H713-Research/blob/main/OEM/CUSTOMIZATION.md",
+      "https://github.com/lolmam/HY300-H713-Research"
+     ]
+    },
+    {
+     "claim": "Delete the confirmed malicious, updater and factory packages and the root binaries. None of them provides a user-facing feature.",
+     "confidence": "high",
+     "detail": "Malicious: com.htc.storeos (dropper), com.htc.eventuploadservice (telemetry and remote admin), com.htc.expandsdk (ads and persistence), com.hotack.silentsdk (RAT/proxy), com.hotack.writesn, com.htc.bootstart, com.htc.htcotaupdate, and com.me.cash5 plus proxy plugins. OTA updaters: com.softwinner.update, UpdateService_L010, /system/app/Update/Update.apk and android.rockchip.update.service. Factory and test: com.htc.hyk_test and com.softwinner.tv.factorymenu. Also com.huawei.connection. Root binaries: /system/bin/qw (su daemon), /system/xbin/hotacksu, and the setuid /system/bin/wifi. On H713, silentsdk lives in /system, so it can only be disabled until /system is edited. The vendor scripts appsdisable and gmsopt disable Google boot receivers, which matters if you install Google apps.",
+     "sources": [
+      "https://github.com/Kavan00/Android-Projector-C2-Malware",
+      "https://github.com/well0nez/magcubic-root",
+      "https://github.com/maximilian-sh/hy350max-badbox-removal",
+      "https://github.com/battleof3/magcubic-h726-cleanup",
+      "https://github.com/lolmam/HY300-H713-Research/blob/main/Firmware/SYSTEM_ANALYSIS.md"
+     ]
+    },
+    {
+     "claim": "The firmware's network-side tweaks need fixing for a clean internet-connected setup: the connectivity-check and NTP servers point at China-hosted endpoints, and the vendor overlay cannot be disabled.",
+     "confidence": "low",
+     "detail": "Found on H726. Allwinner compiled www.google.cn/generate_204 into NetworkStack resources, and the vendor overlay repeats it. battleof3 ships its own overlay and sets `settings put global ntp_server` and the `captive_portal_*` URLs. Not verified on H713, so check what the HY320 does. The same applies to H726 'Lumina Go' firmware, which exposes an unauthenticated LAN control API on TCP 8899 (with factory-reset commands). If it exists on the HY320, it argues for keeping the vendor launcher blocked from the network or removing it.",
+     "sources": [
+      "https://github.com/battleof3/magcubic-h726-cleanup",
+      "https://raw.githubusercontent.com/battleof3/magcubic-h726-cleanup/main/magisk/hy300-clean/service.sh",
+      "https://github.com/schaumann-byte/hy300-projector-homeassistant"
+     ]
+    },
+    {
+     "claim": "Blocking network access per app for the vendor packages you keep needs root and a UID-based firewall. Apps that share the system UID cannot be isolated this way.",
+     "confidence": "low",
+     "detail": "AFWall+ (GPL-3.0, requires root, Android 5 to 14+) blocks apps individually, but its documentation does not cover shared UIDs. The firmware is signed with AOSP test keys, and vendor services listen as UID 1000 (Kavan00). Any kept vendor app that uses sharedUserId android.uid.system can only be removed, not firewalled. This is an inference: check with `dumpsys package <pkg> | grep userId=`.",
+     "sources": [
+      "https://github.com/ukanth/afwall",
+      "https://github.com/Kavan00/Android-Projector-C2-Malware"
+     ]
+    },
+    {
+     "claim": "Two launcher replacements: Projectivy Launcher is the community default but proprietary; FLauncher is a GPL-3.0 open-source option.",
+     "confidence": "medium",
+     "detail": "Projectivy (com.spocky.projengmenu) is used by battleof3, maximilian and the androidpctv HY320 clean firmware. AlternativeTo lists it as freemium and proprietary, and a Privacy Guides post notes it requires an accessibility-service permission. FLauncher (GitLab flauncher/flauncher, GPL-3.0, Flutter) handles sideloaded non-TV apps; its maintenance in 2026 was not confirmed. Whichever launcher you use needs shortcuts to awlivetv/awsource, Settings and the vendor keystone/projection activities. A Home Assistant project reports that the vendor launcher starts before user launchers; its ADB Boot helper sends HOME so the chosen launcher comes to the front.",
+     "sources": [
+      "https://alternativeto.net/software/projectivy-launcher/",
+      "https://discuss.privacyguides.net/t/pojectivy-launcher-privacy-and-launchers-genegrally/34179.md",
+      "https://gitlab.com/flauncher/flauncher",
+      "https://androidpctv.com/firmware-magcubic-hy300-hy320/",
+      "https://github.com/schaumann-byte/hy300-projector-homeassistant"
+     ]
+    }
+   ],
+   "open_questions": [
+    "Exact HY320 package set. Which launcher does it ship: luminaos, magcubicos or htclauncherhighenglishd08? Is com.hysd.vafocus present on a manual-focus unit? Answer with `pm list packages -f` and `ls /product/app /system/app /vendor/app /system/priv-app` on the projector.",
+    "Does the H713 / Android 11 build use the same vendor.display.config@1.0::IDisplayConfig transaction 36 and the persist.display.keystone_* properties? Check with `getprop | grep -i keystone` and `lshal | grep display.config` before relying on a launcher-free keystone helper.",
+    "Which component does auto keystone from the accelerometer (config.ini autoKeystone), and does it keep working once the vendor launcher is disabled? Not found; test it on the device.",
+    "How flip/ceiling/rear projection is stored (property, HAL call or tvserver)? Not found. Run `getprop` before and after changing it in the vendor UI to find out.",
+    "Do kept vendor apps (awsource/awlivetv/vis/awmanager/vafocus/BT remote) share android.uid.system? That decides whether a UID firewall can isolate them or whether they must be trusted.",
+    "Does the HY320 firmware hardcode China-hosted connectivity-check/NTP endpoints (as found on H726) or expose the Lumina Go port-8899 API? Check with `netstat -tlnp` and `cmd overlay list`.",
+    "Is com.android.nfx present, and is it needed for D-pad navigation in Netflix on this build? Is the fingerprint spoofed (ADT-3, as on one H713 firmware)? Both affect Netflix behaviour after cleanup.",
+    "Does io.github.jqssun.airplay ship an armeabi-v7a build that runs on a 32-bit H713 userspace? Its README does not list ABIs."
+   ]
+  },
+  "verify": {
+   "checks": [
+    {
+     "claim": "1. The HY320 has manual focus and auto keystone; the HY320F (electric focus) and HY320 Pro (autofocus) are different models, so com.hysd.vafocus has nothing to drive on a plain HY320.",
+     "verdict": "confirmed",
+     "note": "Magcubic's compare table lists HY320 and HY320 mini as 'Manual focus', keystone 'Auto', Android 11, AW869A. The HY320F page says 'electronic focus' and auto vertical keystone, but it is an H726 / Android 14 unit, a different platform from the user's. The HY320 Pro guide says it 'supports automatic focusing' and runs Android 14. The global sources spec sheet says H713 with manual focus. 'Loses nothing if vafocus is removed' is an inference: well0nez marks vafocus 'Keep (autofocus motor control, hardware-related)'. The XDA RK3326 thread returned 403, so I could not check it.",
+     "sources": [
+      "https://www.magcubic.com/pages/compare-magcubic-projectors",
+      "https://www.magcubic.com/products/magcubic-projector-hy320f",
+      "https://www.magcubic.com/blogs/about-projector/hy320-pro-setup-how-to-guide",
+      "https://p.globalsources.com/IMAGES/PDT/SPEC/161/K1214116161.pdf",
+      "https://github.com/well0nez/magcubic-root"
+     ]
+    },
+    {
+     "claim": "2. Keystone correction is done by the vendor display HAL/composer and stored in persist.display.keystone_* properties, so another app can drive it and settings survive with the launcher disabled.",
+     "verdict": "partly",
+     "note": "Confirmed for H726 / Android 14 only. Keystone.java uses HAL 'vendor.display.config@1.0::IDisplayConfig', instance 'default', TRANSACT_SET_KEYSTONE = 36, and the 8 persist.display.keystone_* properties plus zoom_h/v. battleof3 enables the helper only on build 20260318.111759, and the code itself has no build check. On H713, the probonopd gist (HY300 Pro+, LuminaOS) says 'basic keystone correction still works, but there is no UI anymore for the more advanced vertical correction'. That is consistent with the claim, but it does not show whether saved values or auto keystone are what survives. No source shows the H713 HAL name, the transaction number or the property names: searches for persist.display.keystone found nothing outside battleof3. The config.ini autoKeystone/manualKeystone flags are confirmed in lolmam CUSTOMIZATION.md. Which process runs auto keystone from the accelerometer on H713: not found.",
+     "sources": [
+      "https://raw.githubusercontent.com/battleof3/magcubic-h726-cleanup/main/keystone/src/hy300/Keystone.java",
+      "https://github.com/battleof3/magcubic-h726-cleanup",
+      "https://gist.github.com/probonopd/3ad6b7777caea1503f00d5fe7710ad06",
+      "https://github.com/lolmam/HY300-H713-Research/blob/main/OEM/CUSTOMIZATION.md"
+     ]
+    },
+    {
+     "claim": "3. Projection settings (flip, keystone, initial angle) are activities in the vendor launcher, so keep it installed and only change the default home activity.",
+     "verdict": "partly",
+     "note": "maximilian (HY350 Max, H726) confirms: keystone is CorrectionActivity and projection mode is ProjectActivity inside com.htc.magcubicos. It says not to delete MagcubicOS.apk and to use 'cmd package set-home-activity'. The gist shows com.htc.luminaos/.activity.ProjectActivity on H713, and well0nez marks both launchers 'Keep if you need alignment tools'. Not verified: InitAngleActivity, '.activity.settings.*', and the 4-mode Flip menu in the manuals.plus manual (403). Also not verified for the HY320's own launcher. Caveat from schaumann (H726): the vendor launcher is direct-boot-aware and starts before the user's launcher even when another app holds the HOME role, and changing persist.sys.homePackage has no effect. Changing the default home therefore may not be enough by itself.",
+     "sources": [
+      "https://github.com/maximilian-sh/hy350max-badbox-removal",
+      "https://gist.github.com/probonopd/3ad6b7777caea1503f00d5fe7710ad06",
+      "https://github.com/well0nez/magcubic-root",
+      "https://github.com/schaumann-byte/hy300-projector-homeassistant"
+     ]
+    },
+    {
+     "claim": "4. The launcher variants are luminaos, magcubicos and htclauncherhighenglishd08; the last is malicious and the other two are vendor UI with analytics. Install a replacement launcher before disabling the stock one.",
+     "verdict": "confirmed",
+     "note": "micha102 and the gist describe htclauncherhighenglishd08 as malware contacting shortx.srafx.com and imasdk.googleapis.com. The micha102 README does end with 'Readme generated with Deepseek'. maximilian lists it under 'referenced, but not preinstalled', as a malicious launcher. battleof3 lists Baidu analytics (hmma.baidu.com) in magcubicos. Analytics in luminaos: no source found. Which launcher the HY320 ships: not found. The androidpctv HY300/HY320/L018 clean firmware replaces the launcher with Projectivy and does not name the stock one.",
+     "sources": [
+      "https://github.com/micha102/hy300pro-debloat",
+      "https://gist.github.com/probonopd/3ad6b7777caea1503f00d5fe7710ad06",
+      "https://github.com/maximilian-sh/hy350max-badbox-removal",
+      "https://github.com/battleof3/magcubic-h726-cleanup",
+      "https://androidpctv.com/firmware-magcubic-hy300-hy320/"
+     ]
+    },
+    {
+     "claim": "5. HDMI input is handled by com.softwinner.awsource, awlivetv and vis on the TV-input framework. Projectivy 'Inputs' cannot open it, and removing any of the three breaks HDMI.",
+     "verdict": "confirmed",
+     "note": "battleof3 lists awsource (source picker), awlivetv (viewer) and vis (HDMI input service) as Keep. It says the driver registers three HDMI inputs and only one is wired (check with dumpsys tv_input | grep HdmiInputService). It says Projectivy's Inputs entries cannot open HDMI because nothing on the firmware handles the standard TV-passthrough intent. remote-buttons.sh launches awlivetv with '--es input_source HDMI2', described as the same intent awsource sends. The gist confirms 'am start -n com.softwinner.awlivetv/.MainActivity' on H713. 'Removing any of the three breaks HDMI' is an inference that no source tests.",
+     "sources": [
+      "https://github.com/battleof3/magcubic-h726-cleanup",
+      "https://raw.githubusercontent.com/battleof3/magcubic-h726-cleanup/main/magisk/hy300-clean/remote-buttons.sh",
+      "https://gist.github.com/probonopd/3ad6b7777caea1503f00d5fe7710ad06"
+     ]
+    },
+    {
+     "claim": "6. Picture and sound come from tvserver plus PQ configs, Wi-Fi and Bluetooth use AOSP Settings with no launcher icon, and the setup wizard should be disabled only after device_provisioned and user_setup_complete are both 1.",
+     "verdict": "partly",
+     "note": "Confirmed: on H726 the Picture and Focus screens are in com.android.tv.settings/.MainSettings (no icon), and tvserver needs /oem write access (panel_config.ini sepolicy rules, not shown). On H713 HY310/L018, com.android.settings has no launcher intent-filter and opens via am start (well0nez). The config.ini network/bluetooth flags are confirmed. The device_provisioned/user_setup_complete rule and com.htc.htcsetup_wizard_d55 are confirmed. Not found: 'HTC_Wizard_QZ' and the H713 picture-settings package.",
+     "sources": [
+      "https://github.com/battleof3/magcubic-h726-cleanup",
+      "https://github.com/well0nez/magcubic-root",
+      "https://github.com/lolmam/HY300-H713-Research/blob/main/OEM/CUSTOMIZATION.md"
+     ]
+    },
+    {
+     "claim": "7. IR is decoded in the kernel (sunxi-ir, rc_map_sunxi) and mapped by a keylayout, the BT remote needs com.htc.htcbluetoothremotecontrol, and com.android.nfx is a Netflix D-pad helper with no INTERNET permission.",
+     "verdict": "confirmed",
+     "note": "H713 dmesg in the gist shows 'Registered IR keymap rc_map_sunxi' at 7040000.s_cir. On H726 the keylayout is /oem/usr/keylayout/sunxi-ir.kl: key 643 PRJ_AIRPLAY (scancode 0x93), key 642 PRJ_MIRACAST (0x98), and the 'key 64[23]' lines are commented out to remap. The mouse button is Linux key 365, and the script notes that 'vendor keycode (10009)' maps to KEYCODE_UNKNOWN on injection, so the 10009 detail is roughly right. battleof3 keeps htcbluetoothremotecontrol as 'Remote service'. florentine (H713M, Android 11) describes nfx in /system/priv-app/NFXAccessibility, 'no INTERNET permission at all', active only while com.netflix.mediaclient is in front, and keeps it. battleof3 removes nfx and ytb on H726 because a services.jar hook force-enables them. Since the user wants Netflix, keeping nfx is the better default.",
+     "sources": [
+      "https://gist.github.com/probonopd/3ad6b7777caea1503f00d5fe7710ad06",
+      "https://github.com/battleof3/magcubic-h726-cleanup",
+      "https://raw.githubusercontent.com/battleof3/magcubic-h726-cleanup/main/magisk/hy300-clean/remote-buttons.sh",
+      "https://github.com/maximilian-sh/hy350max-badbox-removal",
+      "https://github.com/florentineprinzessinzusachsen/badbox-h713-projector"
+     ]
+    },
+    {
+     "claim": "8. The vendor cast stack (toofifi, mphotool, samescreen) is phone-home code and can be replaced by io.github.jqssun.airplay for the iPad. miracastReceiver is the only path for Win+K.",
+     "verdict": "confirmed",
+     "note": "well0nez: toofifi 'phones home to China', and AirPlay 7000/7002/9528 plus Audio HAL 14035 are bound to 0.0.0.0. florentine: lineserver and toofifi.miracast call server.mphotool.com:8680 and upload logs to mphotool.com/FeituAppLogMgr. maximilian: mphotool airplay/dlna need activation stored in ft_activated_data, and samescreen (uid 1000) opens the cloud session. battleof3: disable miracastReceiver 'unless you mirror from Windows (Win + K) or a Miracast phone'. jqssun README: GPL-3.0, Android 7.0+ including Android TV, H.264/H.265, same subnet, no protected or DRM content. Resolves the open question: F-Droid lists armeabi-v7a builds (0.0.29 to 0.0.31, Aug 2026), and GitHub has releases up to v0.0.36 (19 Oct).",
+     "sources": [
+      "https://github.com/well0nez/magcubic-root",
+      "https://github.com/florentineprinzessinzusachsen/badbox-h713-projector",
+      "https://github.com/maximilian-sh/hy350max-badbox-removal",
+      "https://github.com/battleof3/magcubic-h726-cleanup",
+      "https://github.com/jqssun/android-airplay-server",
+      "https://f-droid.org/packages/io.github.jqssun.airplay/",
+      "https://github.com/jqssun/android-airplay-server/releases"
+     ]
+    },
+    {
+     "claim": "9. The file manager, gallery, cleaner, screensaver and office apps are bloat or SDK hosts, and Material Files can replace HiFileManager.",
+     "verdict": "partly",
+     "note": "The gist's /product/app listing includes HiFileManager, Gallery2, ClearMemory, ScreenSaverQZ, HtcOfficeSuite, Browser2, BluetoothSpeaker and CloseDialog_QZ. battleof3 disables clearmemory and mobisystems.office (it 'claims every content:// link') and removes com.htc.screensaver, the host for com.hotack.screensaversdk. Material Files README: GPL-3.0, Android 5.0+, FTP/SFTP/SMB/WebDAV, root. It says nothing about Android TV or D-pad support, or about installing APKs, so remote-only use and 'install from file manager' are untested. No source reports malicious behaviour for HiFileManager or Gallery2, and none clears them either.",
+     "sources": [
+      "https://gist.github.com/probonopd/3ad6b7777caea1503f00d5fe7710ad06",
+      "https://github.com/battleof3/magcubic-h726-cleanup",
+      "https://github.com/zhanghai/MaterialFiles"
+     ]
+    },
+    {
+     "claim": "10. The boot animation and splash are plain files on /oem, and /oem/customer.prop overrides build.prop.",
+     "verdict": "confirmed",
+     "note": "lolmam: /oem/media/bootanimation.zip 'Takes priority over /system/media/bootanimation.zip', bootlogo.bmp is a 1280x720 24-bit BMP drawn by U-Boot, customer.prop overrides /system/build.prop, ro.miracast.name=Projector-Cast, and the OTA channel is persist.sys.Channel. Security point the research missed: Kavan00 (H713) reports /oem is world-writable and that writing ro.debuggable=1 / ro.secure=0 / service.adb.root=1 into customer.prop gives root. A cleaned unit stays trivially rootable until /oem permissions and customer.prop are locked down.",
+     "sources": [
+      "https://github.com/lolmam/HY300-H713-Research/blob/main/OEM/CUSTOMIZATION.md",
+      "https://github.com/Kavan00/Android-Projector-C2-Malware"
+     ]
+    },
+    {
+     "claim": "11. Delete the malicious, updater and factory packages and the root binaries (qw, hotacksu, setuid /system/bin/wifi); none provides a user-facing feature, and silentsdk lives in /system on H713.",
+     "verdict": "partly",
+     "note": "Confirmed: Kavan00 (H713) names storeos, silentsdk, eventuploadservice, expandsdk, bootstart, htcotaupdate, com.me.cash5 and the proxy plugins, plus /system/bin/qw. well0nez names huawei.connection, hyk_test and android.rockchip.update.service. battleof3 names softwinner.update and factorymenu. The gist shows UpdateService_L010 and /system/app/Update/Update.apk. lolmam documents /system/bin/wifi as 4755 SUID root, a vendor su that grants root only from the UART console. well0nez confirms appsdisable 'disables all Google boot receivers including Play Protect on first boot'. Weak or wrong parts: (a) 'silentsdk lives in /system on H713' is not supported. Kavan00 says StoreOS downloaded it at runtime on its unit and a different analysis found it preinstalled, and well0nez gives no path. (b) hotacksu is documented only on H726 (maximilian). (c) maximilian lists writesn as a 'proxy helper' that is referenced but not preinstalled. (d) The updaters are a user feature (firmware updates); removing them is right but it is a tradeoff. (e) gmsopt's role is not documented.",
+     "sources": [
+      "https://github.com/Kavan00/Android-Projector-C2-Malware",
+      "https://github.com/well0nez/magcubic-root",
+      "https://github.com/maximilian-sh/hy350max-badbox-removal",
+      "https://github.com/battleof3/magcubic-h726-cleanup",
+      "https://gist.github.com/probonopd/3ad6b7777caea1503f00d5fe7710ad06",
+      "https://github.com/lolmam/HY300-H713-Research/blob/main/Root/wifi/README.md",
+      "https://github.com/florentineprinzessinzusachsen/badbox-h713-projector"
+     ]
+    },
+    {
+     "claim": "12. The connectivity-check and NTP endpoints point at China, and the Lumina Go API on port 8899 is unauthenticated, which argues for blocking or removing the vendor launcher.",
+     "verdict": "partly",
+     "note": "Confirmed on H726: Allwinner built www.google.cn/generate_204 into NetworkStack resources, so battleof3 ships an overlay and sets ntp_server to 'time.android.com|time.google.com' in place of ntp.ntsc.ac.cn and ntp.aliyun.com. schaumann (HY300 Pro+, H726, Android 14): Lumina Go v3.0.0 runs a web remote on 8899, 'no auth, LAN only', with 130 commands, and the integration blocks FACTORY_RESET and CLR_DATA. Unsupported: that the vendor launcher serves 8899, since schaumann does not name the package. Nothing found for H713.",
+     "sources": [
+      "https://github.com/battleof3/magcubic-h726-cleanup",
+      "https://github.com/schaumann-byte/hy300-projector-homeassistant"
+     ]
+    },
+    {
+     "claim": "13. Per-app network blocking needs root and a UID firewall, and kept vendor apps that share android.uid.system can only be removed, not firewalled.",
+     "verdict": "partly",
+     "note": "AFWall+ README: GPL-3.0, root required, Android 5 to 14+. It does not mention shared UIDs. Android docs: apps with the same sharedUserId share one Linux UID. battleof3: 'Most vendor apps run with the shared system UID, so each one effectively holds system powers.' A UID firewall therefore cannot separate them. The claim overstates one point: you can firewall UID 1000 as a whole. That would also cut system_server, which runs as UID 1000, and the shared apps still hold system privileges, so firewalling is not real isolation. Check each app with dumpsys package.",
+     "sources": [
+      "https://github.com/ukanth/afwall",
+      "https://developer.android.com/guide/topics/manifest/manifest-element",
+      "https://github.com/battleof3/magcubic-h726-cleanup",
+      "https://github.com/Kavan00/Android-Projector-C2-Malware"
+     ]
+    },
+    {
+     "claim": "14. Projectivy is the community default but proprietary and needs an accessibility service; FLauncher is the GPL-3.0 option.",
+     "verdict": "partly",
+     "note": "battleof3 and the androidpctv HY320 clean firmware use Projectivy (com.spocky.projengmenu). Its GitHub repo (spocky/miproja1) holds only configs and an issue tracker, with no source code, so it is effectively closed. I could not verify the AlternativeTo 'freemium/proprietary' citation: the page fetched was the alternatives list. Wrong as stated: the developer's listing calls the accessibility service optional, used for remote shortcuts and foreground-app detection. The Privacy Guides post is a single unanswered question. FLauncher: the GitLab original is GPL-3.0 with no visible recent dates. osrosal's GPL-3.0 fork lists 'Support for non-TV (sideloaded) apps', and its last release is 2025.07.001 (27 Jul 2025), so maintenance is uncertain in 2026. schaumann's helper sends HOME at boot because the vendor launcher comes up first.",
+     "sources": [
+      "https://github.com/spocky/miproja1",
+      "https://www.apkmirror.com/apk/spocky/projectivy-launcher-android-tv",
+      "https://discuss.privacyguides.net/t/pojectivy-launcher-privacy-and-launchers-genegrally/34179.md",
+      "https://gitlab.com/flauncher/flauncher",
+      "https://github.com/osrosal/flauncher/releases",
+      "https://androidpctv.com/firmware-magcubic-hy300-hy320/",
+      "https://github.com/schaumann-byte/hy300-projector-homeassistant"
+     ]
+    }
+   ],
+   "corrected_bottom_line": "The package-level map largely holds up, but most of the detailed evidence (the keystone HAL, the shared-UID note, google.cn/NTP, the 8899 API, the services.jar nfx hook) comes from H726 / Android 14 units, not the user's H713 / Android 11 HY320. Treat those details as hypotheses to check on the device.\n\n**Keep:**\n- HDMI: com.softwinner.awsource, awlivetv and vis.\n- com.softwinner.awmanager.\n- com.htc.htcbluetoothremotecontrol, if the remote is Bluetooth.\n- AOSP Settings: com.android.settings on H713, which has no icon.\n- com.android.nfx: on H713 it has no INTERNET permission, and it exists for D-pad control of the Netflix app the user wants.\n- The stock launcher, installed but not default. It holds the keystone and projection screens, and on H713 it may also run auto keystone. Removing or replacing it is only safe once `getprop`, `lshal` and tests prove keystone and flip survive without it.\n- Note: vafocus and closedialog ('focus service' on H726) have no confirmed role on a manual-focus HY320.\n\n**Delete:**\n- The documented malware and updaters.\n- The toofifi/mphotool/samescreen cast stack.\n- qw, hotacksu (if present) and the setuid /system/bin/wifi.\n- miracastReceiver too, unless Win+K is wanted.\n\n**Replace:**\n- Casting: AirPlay Server (io.github.jqssun.airplay). F-Droid lists armeabi-v7a builds, so it should install on the 32-bit userspace.\n- Launcher: Projectivy (closed source; its accessibility service is optional) or the osrosal FLauncher fork (GPL-3.0, last release July 2025).\n- File manager: Material Files (GPL-3.0, SMB/FTP/WebDAV client). It has no documented D-pad support.\n\n**Corrections:**\n- 'silentsdk lives in /system on H713' is unsupported.\n- A UID firewall cannot isolate apps that share the system UID. Firewalling UID 1000 as a whole also cuts system_server, so treat kept system-UID apps as trusted or remove them.\n- /oem is world-writable, and customer.prop overrides build.prop, so it can re-enable root. It must be locked down for the device to be 'safe on Wi-Fi'.\n\n**Netflix:** This HY320 has no Netflix certification. Only the HY320 NTV variant is sold as Netflix-licensed. Expect the sideloaded mobile app at about SD (Widevine L3). That is a hardware and licensing limit that cleanup cannot fix.",
+   "gaps": [
+    {
+     "issue": "Netflix quality and availability. Only the separate HY320 NTV (Whale OS) is sold as Netflix-licensed. The androidpctv review of the related HY310 says it 'lacks certification for paid streaming platforms', and uncertified L3 devices are capped at about 480p. Rooting or unlocking may also change Play Store visibility. Check with DRM Info and `getprop ro.build.fingerprint` (one H713 build spoofs Google ADT-3) before promising Netflix. Plan for the mobile APK plus nfx for D-pad, or an HDMI stick if HD is required.",
+     "sources": [
+      "https://www.magcubic.com/pages/compare-magcubic-projectors",
+      "https://androidpctv.com/firmware-magcubic-hy310/",
+      "https://www.soundcore.com/de/blogs/projectors/how-to-watch-netflix-on-projector",
+      "https://github.com/florentineprinzessinzusachsen/badbox-h713-projector"
+     ]
+    },
+    {
+     "issue": "Safe APK install from the PC over Wi-Fi (user's q8) is not covered. Stock 5555 is 'ADB without authentication' as root (Kavan00). AOSP user builds normally force RSA auth, so the vendor changed adbd or its properties, and how is unknown. Android docs say pairing-code Wireless debugging needs Android 13+ on TV. The HY320 ships phone Settings (com.android.settings), so the Android 11 Wireless debugging toggle may still exist, but this is unverified. Steps: check `getprop ro.adb.secure` and whether a new PC triggers the RSA 'allow' prompt. If not, keep ADB off or block 5555, and use a USB stick or an SMB share opened in Material Files.",
+     "sources": [
+      "https://github.com/Kavan00/Android-Projector-C2-Malware",
+      "https://developer.android.com/tools/adb",
+      "https://gerrit.omnirom.org/plugins/gitiles/android_system_core/+/5cba504215ea91187cc36ec7aec5dce1b0f4b0fe%5E%21",
+      "https://github.com/well0nez/magcubic-root"
+     ]
+    },
+    {
+     "issue": "Auto keystone (the HY320's advertised keystone mode) on H713: which process reads the g-sensor and applies it, and whether it survives disabling the launcher, was not found. The only H713 data point says 'basic keystone correction still works' with LuminaOS disabled, and it is ambiguous. Flip/ceiling storage was also not found.",
+     "sources": [
+      "https://gist.github.com/probonopd/3ad6b7777caea1503f00d5fe7710ad06",
+      "https://github.com/lolmam/HY300-H713-Research/blob/main/OEM/CUSTOMIZATION.md"
+     ]
+    },
+    {
+     "issue": "The vendor launcher may come back to the front at boot even when another launcher is default: it is direct-boot-aware, and persist.sys.homePackage is ignored (seen on H726). Plan for a HOME-sending boot helper or an equivalent Magisk service.",
+     "sources": [
+      "https://github.com/schaumann-byte/hy300-projector-homeassistant"
+     ]
+    },
+    {
+     "issue": "/oem is world-writable, and customer.prop overrides build.prop, so any app or shell can set ro.debuggable / ro.secure=0 for root. The research's cleanup list does not include remounting /oem or fixing its permissions and cleaning customer.prop.",
+     "sources": [
+      "https://github.com/Kavan00/Android-Projector-C2-Malware",
+      "https://github.com/lolmam/HY300-H713-Research/blob/main/OEM/CUSTOMIZATION.md"
+     ]
+    },
+    {
+     "issue": "Router: ASUS lists the home router as end-of-life, with no more firmware updates, and no VLAN or IoT-segment feature was found for it. Guest-network isolation (the usual containment) would break AirPlay, which needs the iPad on the same subnet, and PC-to-projector ADB/SMB. The 'isolate the projector' advice from well0nez and maximilian therefore conflicts with the user's AirPlay and Wi-Fi APK goals. The safe setup has to rely on on-device cleanup plus router-level domain/IP blocking where possible. Whether this router has an 'Access Intranet' guest toggle, DNS filtering or AiProtection is unverified.",
+     "sources": [
+      "https://www.asus.com/event/network/EOL-product",
+      "https://github.com/jqssun/android-airplay-server",
+      "https://github.com/maximilian-sh/hy350max-badbox-removal",
+      "https://github.com/well0nez/magcubic-root"
+     ]
+    },
+    {
+     "issue": "Whether Material Files can be driven by the remote (D-pad) and can hand APKs to the package installer is undocumented. Test it, or keep a TV-friendly fallback for file browsing.",
+     "sources": [
+      "https://github.com/zhanghai/MaterialFiles"
+     ]
+    },
+    {
+     "issue": "The HY320's actual package set is still unknown (launcher variant, whether vafocus or closedialog exist, whether silentsdk is preinstalled or downloaded, and its path). Every keep/delete decision depends on `pm list packages -f` from this unit.",
+     "sources": [
+      "https://github.com/Kavan00/Android-Projector-C2-Malware",
+      "https://github.com/well0nez/magcubic-root"
+     ]
+    }
+   ]
+  }
+ }
+]

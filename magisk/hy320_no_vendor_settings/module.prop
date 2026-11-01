@@ -1,0 +1,6 @@
+id=hy320_no_vendor_settings
+name=HY320: vendor settings app removed
+version=v1
+versionCode=1
+author=owner
+description=Hides the vendor settings app (com.htc.htcsettings), which carries Baidu analytics with the serial and MAC address, and a RecoverySystem update path, and runs as the system so its network cannot be blocked. Nothing in any partition is changed: removing this module brings the app straight back.

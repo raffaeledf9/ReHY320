@@ -1,0 +1,6 @@
+id=hy320_miracast
+name=HY320: Miracast receiver, off by default
+version=v1
+versionCode=1
+author=owner
+description=Puts back com.softwinner.miracastReceiver, the chip maker's own Wi-Fi Direct receiver that the cleaning removed. Everything under it survived -- libwfds, libwfdmanager, libwfdplayer, libwfdrtsp, libjni_WFDManager and the wfdsink HDCP flag -- so only this app was missing. It ships DISABLED on purpose: a Miracast sink is found over the air rather than over your Wi-Fi, and it runs as the system uid and persistently, so once it is running it can be neither disabled nor firewalled. To use it, delete the "disable" file in this folder and restart; to stop it, put the file back and restart. No partition is changed either way.

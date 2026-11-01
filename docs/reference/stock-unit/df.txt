@@ -1,0 +1,14 @@
+﻿Filesystem            1K-blocks    Used Available Use% Mounted on
+tmpfs                    476372     848    475524   1% /dev
+tmpfs                    476372       0    476372   0% /mnt
+/dev/block/mmcblk0p19     11760     120     11156   2% /metadata
+/dev/block/dm-0         1003716 1000672         0 100% /
+/dev/block/dm-1          110404  110068         0 100% /vendor
+/dev/block/dm-2          310552  309620         0 100% /product
+/dev/block/mmcblk0p24     15986       6     15980   1% /Reserve0
+/dev/block/mmcblk0p23     16348       8     16340   1% /oem
+tmpfs                    476372       0    476372   0% /apex
+tmpfs                    476372     248    476124   1% /linkerconfig
+/dev/block/mmcblk0p25   4969964  779636   4005108  17% /data
+tmpfs                    476372       0    476372   0% /data_mirror
+/dev/fuse               4969964  779636   4005108  17% /storage/emulated

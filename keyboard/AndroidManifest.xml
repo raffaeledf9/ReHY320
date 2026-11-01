@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The projector's keyboard, on its own.
+
+     It was built inside the projector app, where it worked, but that app holds INTERNET so
+     the drop box can open a port. A keyboard sees every password typed on this unit, and
+     the one thing it should not be able to do is reach the network, so it was moved out
+     here rather than left sharing a permission it has no use for.
+
+     There is deliberately nothing below: no uses-permission of any kind, no activity, no
+     receiver. Just the one service Android binds to put keys on the screen. The package
+     has no launcher entry either, so the home screen does not list it among the apps,
+     a keyboard being not something you open.
+
+     Being its own package also takes the home screen out of its way. While the two shared
+     a process, a keyboard that died took the launcher down with it; that was watched
+     happening on 2026-10-29 and is in the runbook. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.hy320.keyboard"
+    android:versionCode="1"
+    android:versionName="1.0">
+
+    <uses-sdk android:minSdkVersion="21" android:targetSdkVersion="30" />
+
+    <!-- A projector has no touch screen; say so, or this cannot be installed. -->
+    <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
+    <uses-feature android:name="android.software.leanback" android:required="false" />
+
+    <application
+        android:label="@string/keyboard_label"
+        android:allowBackup="false"
+        android:supportsRtl="true">
+
+        <service android:name=".KeyboardService"
+            android:label="@string/keyboard_label"
+            android:permission="android.permission.BIND_INPUT_METHOD"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.view.InputMethod" />
+            </intent-filter>
+            <meta-data android:name="android.view.im" android:resource="@xml/method" />
+        </service>
+    </application>
+</manifest>

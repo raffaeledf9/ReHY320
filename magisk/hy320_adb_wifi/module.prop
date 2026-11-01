@@ -1,0 +1,6 @@
+id=hy320_adb_wifi
+name=HY320: wireless debugging over TLS
+version=v1
+versionCode=1
+author=owner
+description=Turns on Android 11's TLS wireless debugging, which this firmware supports in adbd but gives no switch for: the TV settings app has no wireless-debugging screen at all, and setting adb_wifi_enabled makes the framework turn the property back off. Disable this module and reboot to stop listening on the network entirely; the plain 5555 port stays closed either way, which is hy320_no_plain_adb's job. Only an authorised adb key can connect, and the port is found with "adb mdns services".

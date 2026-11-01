@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.hy320.tools"
+    android:versionCode="5"
+    android:versionName="1.4">
+
+    <uses-sdk android:minSdkVersion="21" android:targetSdkVersion="30" />
+
+    <!-- Only to read the user's own screen-saver picture out of the shared Pictures folder. -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+
+    <!-- To keep Android's own screen-off timer in step with the projector's. Granted once,
+         by hand, in Android's settings; the app says so plainly when it is missing. -->
+    <uses-permission android:name="android.permission.WRITE_SETTINGS" />
+
+    <!-- No INTERNET. The drop box was the only thing here that ever opened a socket, and
+         the file manager's own FTP server does that job now, so this app asks for nothing
+         to do with the network at all. -->
+
+    <!-- A projector has no touch screen and no telephony; say so, or app lists hide this. -->
+    <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
+    <uses-feature android:name="android.software.leanback" android:required="false" />
+
+    <!-- From Android 11 an app sees only the packages it asks about. The home screen has
+         to list everything that can be started, so it asks for exactly that and no more:
+         both kinds of launcher entry, and nothing else on the unit. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+        </intent>
+        <!-- Holding OK on a tile opens that app's own page in Android's settings. The
+             filter that answers insists on the package scheme, so this entry does too. -->
+        <intent>
+            <action android:name="android.settings.APPLICATION_DETAILS_SETTINGS" />
+            <data android:scheme="package" />
+        </intent>
+        <!-- Android's own settings have no launcher entry on this firmware and answer
+             only to this, so the first row would otherwise be missing a tile. -->
+        <intent>
+            <action android:name="android.settings.SETTINGS" />
+        </intent>
+    </queries>
+
+    <application
+        android:label="Projector"
+        android:icon="@drawable/icon"
+        android:banner="@drawable/banner"
+        android:allowBackup="false"
+        android:supportsRtl="true"
+        android:theme="@android:style/Theme.DeviceDefault.NoActionBar">
+
+        <!-- The home screen. It keeps no list of its own: the apps under the first row are
+             read from the package manager every time it comes forward, so anything just
+             installed is already there. singleTask, because the home key must come back to
+             the one that is running rather than stack another. -->
+        <activity android:name=".LauncherActivity"
+            android:label="Projector"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:stateNotNeeded="true"
+            android:excludeFromRecents="true"
+            android:screenOrientation="landscape">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.HOME" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <activity android:name=".MainActivity"
+            android:label="Projector"
+            android:exported="true"
+            android:screenOrientation="landscape">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <activity android:name=".KeystoneActivity"
+            android:label="Keystone"
+            android:exported="true"
+            android:screenOrientation="landscape" />
+
+        <!-- Put on screen by the watcher in the Magisk module, a minute before standby.
+             Not exported: only root starts it, and root may start what it likes. -->
+        <activity android:name=".WarningActivity"
+            android:label="Going to sleep"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:screenOrientation="landscape" />
+
+        <activity android:name=".PictureActivity"
+            android:label="Picture"
+            android:exported="true"
+            android:screenOrientation="landscape" />
+
+        <activity android:name=".ZoomActivity"
+            android:label="Screen zoom"
+            android:exported="true"
+            android:screenOrientation="landscape" />
+
+        <activity android:name=".StandbyActivity"
+            android:label="Screen saver"
+            android:exported="true"
+            android:screenOrientation="landscape" />
+
+        <activity android:name=".ProjectionActivity"
+            android:label="Projection"
+            android:exported="true"
+            android:screenOrientation="landscape" />
+
+        <!-- A tile of its own on the home screen, which is where it now lives: it left the
+             menu inside this app, so it needs an icon of its own or the two tiles for this
+             one package would be the same picture twice. -->
+        <activity android:name=".HdmiActivity"
+            android:label="HDMI"
+            android:icon="@drawable/hdmi"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:theme="@android:style/Theme.NoDisplay">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- The keyboard used to be here. It is its own package now, ../keyboard, so that
+             the thing that sees every password typed on this unit holds no permissions at
+             all. It was moved out while this app still held INTERNET for the drop box;
+             the drop box has since gone too, but the keyboard stays where it is, which is
+             where a keyboard belongs. -->
+
+        <service android:name=".ScreensaverService"
+            android:exported="true"
+            android:label="Projector"
+            android:permission="android.permission.BIND_DREAM_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.dreams.DreamService" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </service>
+    </application>
+</manifest>

@@ -1,0 +1,211 @@
+{
+ "delete": {
+  "system": [
+   {
+    "path": "system/app/RKMusic",
+    "package": "com.android.music",
+    "reason": "a Rockchip music app, bloat"
+   },
+   {
+    "path": "system/app/TengYunH713TVApp_HY",
+    "package": "com.android.toofifi",
+    "reason": "vendor casting app hiding behind a stock-looking name"
+   },
+   {
+    "path": "system/app/EventUploadService-V1",
+    "package": "com.htc.eventuploadservice",
+    "reason": "sends usage data out"
+   },
+   {
+    "path": "system/app/HTCLauncherEN_QZ-V1",
+    "package": "com.htc.htclauncherhighenglishd08",
+    "reason": "the stock launcher, replaced"
+   },
+   {
+    "path": "system/app/ScreenCast_QZ_New",
+    "package": "com.htc.samescreen",
+    "reason": "vendor casting"
+   },
+   {
+    "path": "system/app/ScreenSaverQZ",
+    "package": "com.htc.screensaver",
+    "reason": "vendor screensaver, replaced (ticket 22)"
+   },
+   {
+    "path": "system/app/StoreOS",
+    "package": "com.htc.storeos",
+    "reason": "installs apps without asking"
+   },
+   {
+    "path": "system/app/FtAirPlayNoUi",
+    "package": "com.mphotool.airplay",
+    "reason": "vendor casting, fails signature verification"
+   },
+   {
+    "path": "system/app/FtDlnaNoUi",
+    "package": "com.mphotool.dlna",
+    "reason": "vendor casting"
+   },
+   {
+    "path": "system/app/iOSUsbCastServer",
+    "package": "com.mphotool.usbcastserver",
+    "reason": "vendor casting, fails signature verification"
+   },
+   {
+    "path": "system/priv-app/TvdFileManager",
+    "package": "com.softwinner.TvdFileManager",
+    "reason": "bloat, replaced"
+   },
+   {
+    "path": "system/app/TvdVideo",
+    "package": "com.softwinner.TvdVideo",
+    "reason": "bloat, replaced"
+   },
+   {
+    "path": "system/app/DragonAgingTV",
+    "package": "com.softwinner.agingdragonbox",
+    "reason": "factory test app"
+   },
+   {
+    "path": "system/app/AwlogSettings",
+    "package": "com.softwinner.awlogsettings",
+    "reason": "vendor logging settings"
+   },
+   {
+    "path": "system/app/DragonAtt",
+    "package": "com.softwinner.dragonatt",
+    "reason": "factory test app"
+   },
+   {
+    "path": "system/app/DragonBox",
+    "package": "com.softwinner.dragonbox",
+    "reason": "factory test app with full network access"
+   },
+   {
+    "path": "system/app/MiracastReceiver",
+    "package": "com.softwinner.miracastReceiver",
+    "reason": "vendor casting, replaced"
+   },
+   {
+    "path": "system/app/Update",
+    "package": "com.softwinner.update",
+    "reason": "second updater"
+   },
+   {
+    "path": "system/app/USBCastServer",
+    "package": "com.toofifi.lineserver",
+    "reason": "vendor casting"
+   },
+   {
+    "path": "system/bin/qw",
+    "reason": "a renamed Superuser root daemon, started at every boot"
+   },
+   {
+    "path": "system/etc/init/qw.rc",
+    "reason": "starts the root daemon"
+   },
+   {
+    "path": "system/bin/preinstall",
+    "reason": "installs any app it finds in a preinstall folder"
+   },
+   {
+    "path": "system/etc/init/preinstall.rc",
+    "reason": "starts the silent installer"
+   },
+   {
+    "path": "system/bin/appsdisable",
+    "reason": "switches off Google's own protection"
+   },
+   {
+    "path": "system/etc/init/appsdisable.rc",
+    "reason": "starts it"
+   },
+   {
+    "path": "system/bin/gmsopt",
+    "reason": "switches off Google's own protection"
+   },
+   {
+    "path": "system/etc/init/gmsopt.rc",
+    "reason": "starts it"
+   },
+   {
+    "path": "system/bin/replace_file.sh",
+    "reason": "copies a boot logo, properties and apps from removable media"
+   },
+   {
+    "path": "system/bin/logcatshell.sh",
+    "reason": "writes log files to internal storage forever"
+   },
+   {
+    "path": "system/etc/init/logcatshell.rc",
+    "reason": "starts the logger"
+   },
+   {
+    "path": "system/bin/eshare.sh",
+    "reason": "leftover of a casting app that is not installed"
+   },
+   {
+    "path": "system/bin/netflix_copy.sh",
+    "reason": "empty leftover"
+   }
+  ],
+  "vendor": [],
+  "product": [
+   {
+    "path": "app/UpdateService_L010",
+    "package": "android.rockchip.update.service",
+    "reason": "updater for a different manufacturer's chip"
+   },
+   {
+    "path": "app/PackageOverride",
+    "package": "com.allwinnertech.packageoverride",
+    "reason": "bloat"
+   },
+   {
+    "path": "app/HotackFeaturesTest_QZ",
+    "package": "com.hotack.hotackfeaturestest",
+    "reason": "factory test app"
+   },
+   {
+    "path": "app/SN_and_MAC",
+    "package": "com.hotack.writesn",
+    "reason": "factory tool that writes the serial number, has internet access"
+   },
+   {
+    "path": "app/HtcOtaUpdate_QZ-V1",
+    "package": "com.htc.htcotaupdate",
+    "reason": "the vendor updater, how the rest arrived"
+   },
+   {
+    "path": "app/HYK_TEST_T08-V2",
+    "package": "com.htc.hyk_test",
+    "reason": "factory test app, 43 MB"
+   },
+   {
+    "path": "app/HtcOfficeSuite",
+    "package": "com.mobisystems.office",
+    "reason": "office suite, 95 MB, fails signature verification"
+   }
+  ]
+ },
+ "edit": {
+  "vendor": [
+   {
+    "path": "ueventd.rc",
+    "old": "/dev/block/mmcblk0          0666    system      system",
+    "new": "/dev/block/mmcblk0          0440    root        shell",
+    "reason": "the vendor lets every app read and write the whole storage (ticket 20)"
+   }
+  ],
+  "system": [
+   {
+    "path": "system/etc/selinux/plat_seapp_contexts",
+    "old": "user=system isPrivApp=true name=com.wohuatv.launcher domain=system_app type=system_app_data_file\nuser=system isPrivApp=true name=com.ksj.ottgame domain=system_app type=system_app_data_file\nuser=system isPrivApp=true name=com.ksj.ott.keep domain=system_app type=system_app_data_file\nuser=system isPrivApp=true name=com.ksj.ott.store domain=system_app type=system_app_data_file\nuser=system isPrivApp=true name=com.stb.duer.apps.xtvott domain=system_app type=system_app_data_file\n",
+    "new": "",
+    "reason": "five app names the policy pre-authorises for system privileges (ticket 10)"
+   }
+  ]
+ },
+ "not_found": [],
+ "would_break_keeps": []
+}

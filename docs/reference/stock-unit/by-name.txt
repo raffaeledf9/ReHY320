@@ -1,0 +1,29 @@
+﻿total 0
+lrwxrwxrwx 1 root root 21 2024-01-01 01:02 Reserve0 -> /dev/block/mmcblk0p24
+lrwxrwxrwx 1 root root 21 2024-01-01 01:02 UDISK -> /dev/block/mmcblk0p25
+lrwxrwxrwx 1 root root 20 2024-01-01 01:02 boot_a -> /dev/block/mmcblk0p5
+lrwxrwxrwx 1 root root 20 2024-01-01 01:02 boot_b -> /dev/block/mmcblk0p6
+lrwxrwxrwx 1 root root 20 2024-01-01 01:02 bootloader_a -> /dev/block/mmcblk0p1
+lrwxrwxrwx 1 root root 20 2024-01-01 01:02 bootloader_b -> /dev/block/mmcblk0p2
+lrwxrwxrwx 1 root root 21 2024-01-01 01:02 dtbo_a -> /dev/block/mmcblk0p21
+lrwxrwxrwx 1 root root 21 2024-01-01 01:02 dtbo_b -> /dev/block/mmcblk0p22
+lrwxrwxrwx 1 root root 21 2024-01-01 01:02 empty -> /dev/block/mmcblk0p18
+lrwxrwxrwx 1 root root 20 2024-01-01 01:02 env_a -> /dev/block/mmcblk0p3
+lrwxrwxrwx 1 root root 20 2024-01-01 01:02 env_b -> /dev/block/mmcblk0p4
+lrwxrwxrwx 1 root root 21 2024-01-01 01:02 frp -> /dev/block/mmcblk0p17
+lrwxrwxrwx 1 root root 21 2024-01-01 01:02 media_data -> /dev/block/mmcblk0p23
+lrwxrwxrwx 1 root root 21 2024-01-01 01:02 metadata -> /dev/block/mmcblk0p19
+lrwxrwxrwx 1 root root 21 2024-01-01 01:02 misc -> /dev/block/mmcblk0p10
+lrwxrwxrwx 1 root root 18 2024-01-01 01:02 mmcblk0 -> /dev/block/mmcblk0
+lrwxrwxrwx 1 root root 21 2024-01-01 01:02 private -> /dev/block/mmcblk0p20
+lrwxrwxrwx 1 root root 20 2024-01-01 01:02 super -> /dev/block/mmcblk0p9
+lrwxrwxrwx 1 root root 21 2024-01-01 01:02 userdata -> /dev/block/mmcblk0p25
+lrwxrwxrwx 1 root root 21 2024-01-01 01:02 vbmeta_a -> /dev/block/mmcblk0p11
+lrwxrwxrwx 1 root root 21 2024-01-01 01:02 vbmeta_b -> /dev/block/mmcblk0p12
+lrwxrwxrwx 1 root root 21 2024-01-01 01:02 vbmeta_system_a -> /dev/block/mmcblk0p13
+lrwxrwxrwx 1 root root 21 2024-01-01 01:02 vbmeta_system_b -> /dev/block/mmcblk0p14
+lrwxrwxrwx 1 root root 21 2024-01-01 01:02 vbmeta_vendor_a -> /dev/block/mmcblk0p15
+lrwxrwxrwx 1 root root 21 2024-01-01 01:02 vbmeta_vendor_b -> /dev/block/mmcblk0p16
+lrwxrwxrwx 1 root root 20 2024-01-01 01:02 vendor_boot_a -> /dev/block/mmcblk0p7
+lrwxrwxrwx 1 root root 20 2024-01-01 01:02 vendor_boot_b -> /dev/block/mmcblk0p8
+ls: /dev/block/platform/*/by-name: No such file or directory

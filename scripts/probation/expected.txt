@@ -1,0 +1,92 @@
+# HY320 probation: destinations that explain themselves.
+#   name_or_.suffix   proto/port[,proto/port]   component
+# Exact names are resolved by the receiver every 10 minutes. A .suffix entry
+# matches only a forward-confirmed reverse name.
+
+connectivitycheck.gstatic.com  tcp/80,tcp/443          android-connectivity-check-http
+www.google.com                 tcp/443,tcp/80          android-connectivity-check-https
+play.googleapis.com            tcp/80,tcp/443          android-connectivity-check-fallback
+time.android.com               udp/123                 android-network-time
+
+# This unit does not use Android's own connectivity-check hosts. The vendor
+# overlay /product/overlay/NetworkStackConfig.apk replaces them, read out of the
+# APK on 2026-10-25 with aapt2:
+#   config_captive_portal_http_url   = http://www.google.cn/generate_204
+#   config_captive_portal_https_url  = https://www.google.cn/generate_204
+#   config_captive_portal_https_urls = [developers.google.cn, www.google.com,
+#                                       connect.rom.miui.com]
+# This is exactly the overlay ticket 16 warned about, which `settings get` cannot
+# show. All three fired in the same second as the first join. They are probes
+# asking for an HTTP 204, not telemetry, but connect.rom.miui.com is Xiaomi's,
+# so this projector greets a Xiaomi server on every network change.
+www.google.cn                  tcp/443,tcp/80          vendor-connectivity-check
+developers.google.cn           tcp/443                 vendor-connectivity-check
+connect.rom.miui.com           tcp/443                 vendor-connectivity-check-xiaomi
+
+# Android's time, through the usual pool rather than time.android.com.
+.pool.ntp.org                  udp/123                 android-network-time
+.1e100.net                     tcp/80,tcp/443,udp/123,udp/443,tcp/5228  google-servers-behind-those-names
+# udp/443 is QUIC, which is most of Google's traffic now, and tcp/5228 is Firebase Cloud
+# Messaging -- the projector resolves mtalk.google.com for it. Both were coming out
+# unexplained for want of a port, not for want of an owner.
+
+# The Google services this unit actually uses, named so their rotating addresses can be
+# tied back to them. Every one of these was seen owned by com.android.vending or
+# com.google.android.gms in the APP field of the projector's own record.
+play.googleapis.com            tcp/443,tcp/80,udp/443  play-store
+play-fe.googleapis.com         tcp/443,udp/443         play-store
+www.googleapis.com             tcp/443,udp/443         google-apis
+android.clients.google.com     tcp/443,udp/443         play-store
+android.googleapis.com         tcp/443,udp/443         play-services
+mtalk.google.com               tcp/5228                firebase-cloud-messaging
+safebrowsing.googleapis.com    tcp/443,udp/443         play-protect
+gmscompliance-pa.googleapis.com tcp/443,udp/443        play-services
+play-lh.googleusercontent.com  tcp/443,udp/443         play-store-artwork
+www.gstatic.com                tcp/443,udp/443         google-static
+
+# The owner's own AirPlay video sources, confirmed by name and by the AirPlay app owning
+# the connections: srv16.example-video-host.net and srv19.example-video-host.net. These are
+# here because they were watched deliberately during the AirPlay tests, not because they
+# explain themselves -- remove them if the projector should never fetch video again.
+srv16.example-video-host.net    tcp/443,udp/443         airplay-video-source
+srv19.example-video-host.net    tcp/443,udp/443         airplay-video-source
+.google.com                    udp/123                 google-public-time-servers
+
+# Magisk checks its own release channel. One lookup and one TLS connection, from the
+# Magisk app, which the owner installed on purpose in step 7; seen on 2026-10-30 at
+# 23:08:43, three seconds before an adb session re-established. Every owner who roots
+# will see this, so it is here rather than left to the diary. Turn the check off in the
+# Magisk app if you would rather it never asked.
+# Named exactly, and NOT as the suffix .github.com, which was tried first and is wrong:
+# GitHub Pages answers from the same domain, so a suffix entry would score any
+# github.io site a projector reached as explained. The self-check catches it.
+#
+# The exact name only matches when the router's DNS log pairs the address with it. On
+# the projector's own record this destination therefore still reads CHECK, because
+# GitHub answers from load balancers called lb-<address>-<pop>.github.com and that is
+# all a reverse lookup gives back. One connection, from the Magisk app, is the expected
+# shape; a stream of them is not.
+api.github.com                 tcp/443                 magisk-update-check
+
+# Only once Netflix is installed, for its own 24-hour re-check. Uncomment then.
+#.netflix.com                  tcp/443                 netflix
+#.nflxext.com                  tcp/443                 netflix
+#.nflximg.net                  tcp/443                 netflix
+#.nflximg.com                  tcp/443                 netflix
+#.nflxsearch.net               tcp/443                 netflix
+#.nflxso.net                   tcp/443                 netflix
+#.nflxvideo.net                tcp/443                 netflix
+
+# LAN peers, by address, on any port. AirPlay's sender connects in on 7000 and the
+# projector answers to the sender's own random ports (timing, events), so no port
+# list is possible. Put your own sender's address here. An iPhone or iPad uses a
+# private Wi-Fi address that changes per network, so reserve that address in the
+# router against the MAC it shows under the network's own details, or this line
+# goes stale the next time it reconnects.
+192.168.1.210                  any                     airplay-sender
+
+# Deliberately absent: FLauncher has no INTERNET permission; Material Files uses
+# it only for a server you add. AirPlay mirroring stays on the LAN, but AirPlay
+# *video* (e.g. YouTube sent from the iPad) makes the projector fetch from the
+# video's own servers (research 14, section 4); those are judged by the diary.
+# Any vendor or Chinese cloud address is unexplained by definition.

@@ -1,0 +1,6 @@
+id=hy320_no_plain_adb
+name=HY320: close the vendor's plain adb port
+version=v1
+versionCode=1
+author=owner
+description=The stock boot ramdisk sets service.adb.tcp.port=5555 in /default.prop, so unencrypted adb-over-TCP is enabled on every boot and has been on every network this projector has ever joined. This closes it and restarts adbd. Leave this module enabled. It is deliberately separate from hy320_adb_wifi: a disabled module does not run at all, so if this lived inside the toggle, turning wireless debugging off would give the plain port back.

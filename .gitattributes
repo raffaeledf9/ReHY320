@@ -1,0 +1,17 @@
+# Shell scripts here are pushed to the projector and run by Android's shell,
+# which will not tolerate CRLF. Keep LF regardless of what the host does.
+*.sh      text eol=lf
+*.py      text eol=lf
+module.prop text eol=lf
+disable   text eol=lf
+
+# Windows-side helpers stay CRLF.
+*.ps1     text eol=crlf
+*.cmd     text eol=crlf
+
+# Everything else: let Git decide, but normalise in the repository.
+*         text=auto
+
+# Pictures are binary.
+*.png     binary
+*.jpg     binary

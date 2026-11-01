@@ -1,0 +1,88 @@
+﻿**********************
+Windows PowerShell transcript start
+Start time: 20261019222433
+Username: <redacted>
+RunAs User: <redacted>
+Configuration Name: <redacted>
+Machine: <redacted>
+Host Application: <redacted>
+Process ID: <redacted>
+PSVersion: <redacted>
+PSEdition: <redacted>
+PSCompatibleVersions: <redacted>
+BuildVersion: <redacted>
+CLRVersion: <redacted>
+WSManStackVersion: <redacted>
+PSRemotingProtocolVersion: <redacted>
+SerializationVersion: <redacted>
+**********************
+read getprop
+read id
+read display
+read partitions
+read by-name
+read mmc-nodes
+read mounts
+read df
+read packages-all
+read packages-disabled
+read packages-thirdparty
+reboot,1704067253
+reboot,1704067229
+reboot,1704075330]
+reboot,1704067253
+reboot,1704067229
+reboot,1704075330]
+reboot,1704067253
+reboot,1704067229
+reboot,1704075330]
+reboot,1704067253
+reboot,1704067229
+reboot,1704075330]
+reboot,1704067253
+reboot,1704067229
+reboot,1704075330]
+reboot,1704067253
+reboot,1704067229
+reboot,1704075330]
+reboot,1704067253
+reboot,1704067229
+reboot,1704075330]
+reboot,1704067253
+reboot,1704067229
+reboot,1704075330]
+reboot,1704067253
+reboot,1704067229
+reboot,1704075330]
+Physical size: 1920x1080
+Physical density: 320
+brw-rw-rw- 1 system system 179,   0 2024-01-01 01:02 /dev/block/mmcblk0
+brw-rw---- 1 system system 179,   1 2024-01-01 01:02 /dev/block/mmcblk0p1
+brw-rw---- 1 system root   179,  10 2024-01-01 01:02 /dev/block/mmcblk0p10
+brw------- 1 root   root   179,  11 2024-01-01 01:02 /dev/block/mmcblk0p11
+brw------- 1 root   root   179,  12 2024-01-01 01:02 /dev/block/mmcblk0p12
+brw------- 1 root   root   179,  13 2024-01-01 01:02 /dev/block/mmcblk0p13
+brw------- 1 root   root   179,  14 2024-01-01 01:02 /dev/block/mmcblk0p14
+brw------- 1 root   root   179,  15 2024-01-01 01:02 /dev/block/mmcblk0p15
+brw------- 1 root   root   259,   0 2024-01-01 01:02 /dev/block/mmcblk0p16
+brw-rw---- 1 system system 259,   1 2024-01-01 01:02 /dev/block/mmcblk0p17
+brw------- 1 root   root   259,   2 2024-01-01 01:02 /dev/block/mmcblk0p18
+brw------- 1 root   root   259,   3 2024-01-01 01:02 /dev/block/mmcblk0p19
+brw------- 1 root   root   179,   2 2024-01-01 01:02 /dev/block/mmcblk0p2
+brw------- 1 root   root   259,   4 2024-01-01 01:02 /dev/block/mmcblk0p20
+brw------- 1 root   root   259,   5 2024-01-01 01:02 /dev/block/mmcblk0p21
+brw------- 1 root   root   259,   6 2024-01-01 01:02 /dev/block/mmcblk0p22
+brw------- 1 root   root   259,   7 2024-01-01 01:02 /dev/block/mmcblk0p23
+brw------- 1 root   root   259,   8 2024-01-01 01:02 /dev/block/mmcblk0p24
+brw------- 1 root   root   259,   9 2024-01-01 01:02 /dev/block/mmcblk0p25
+brw------- 1 root   root   179,   3 2024-01-01 01:02 /dev/block/mmcblk0p3
+brw------- 1 root   root   179,   4 2024-01-01 01:02 /dev/block/mmcblk0p4
+brw------- 1 root   root   179,   5 2024-01-01 01:02 /dev/block/mmcblk0p5
+brw------- 1 root   root   179,   6 2024-01-01 01:02 /dev/block/mmcblk0p6
+brw------- 1 root   root   179,   7 2024-01-01 01:02 /dev/block/mmcblk0p7
+brw------- 1 root   root   179,   8 2024-01-01 01:02 /dev/block/mmcblk0p8
+brw------- 1 root   root   179,   9 2024-01-01 01:02 /dev/block/mmcblk0p9
+**********************
+Windows PowerShell transcript end
+End time: 20261019222435
+**********************
