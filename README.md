@@ -43,11 +43,11 @@ and know why.
 
 <table>
 <tr>
-<td width="50%"><img src="docs/images/projector-menu.png" alt="The projector's own settings: keystone, picture, zoom, projection, screen saver, AirPlay, file server"></td>
+<td width="50%"><img src="docs/images/projector-menu.png" alt="The projector's own settings: keystone, picture, zoom, projection, screen saver, AirPlay, file server, settings"></td>
 <td width="50%"><img src="docs/images/keyboard.png" alt="The keyboard, with left and right arrow keys in the bottom row"></td>
 </tr>
 <tr>
-<td><b>The projector's own settings.</b> Keystone, picture, zoom, projection mode, screen saver, AirPlay and the file server — replacing a vendor app that phoned home.</td>
+<td><b>The projector's own settings.</b> Keystone, picture, zoom, projection mode, screen saver, AirPlay, the file server, and a way through to Android's own settings — replacing a vendor app that phoned home.</td>
 <td><b>A keyboard that works with a remote.</b> Android's own layout, key for key, with the cursor arrows worked into the bottom row.</td>
 </tr>
 </table>
@@ -60,6 +60,14 @@ and know why.
   the only way to reach an app that declares no TV launcher entry: Settings lists
   apps under "See all apps" only if they do, so anything sideloaded from a phone
   APK, Magisk included, is otherwise invisible and cannot be uninstalled at all.
+- **Three keys on the remote that did nothing now do something.** The **menu**
+  key opens the projector's own settings, and the key under the **cast** symbol
+  opens the HDMI input — the firmware aimed that one at a vendor app this
+  project removes, so it had been failing on every press since. The key under
+  the **source** symbol is deliberately left alone: the firmware already opens
+  the Miracast receiver with it, from whatever app is in front, which no
+  ordinary app could do. Both top keys are claimed by the system before any app
+  sees the press, so the home screen acts on the release instead.
 - **A keyboard you can actually type with.** Android's own keyboard gives the
   D-pad to its keys, so the text cursor can never move; HeliBoard gives the
   D-pad to the cursor, so no key is ever focused. Neither is usable with only a
