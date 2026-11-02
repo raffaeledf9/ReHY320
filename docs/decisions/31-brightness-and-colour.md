@@ -54,7 +54,7 @@ that name is running.
   `<uses-library>`. The vendor app also carried a bundled Softwinner SDK, the one whose
   `E_AW_PANEL_CONFIG_MIRROR` applies the projection flip; panel brightness probably sits
   beside it.
-- The vendor APK is kept at `HY320/.scratch/vendor-app/HotackSettingsT08_QZ.apk`, so its
+- The vendor APK is kept at `.scratch/vendor-app/HotackSettingsT08_QZ.apk`, so its
   bytecode can be read exactly as the keystone call was recovered: `dexdump -d`, find the
   call site, read the interface name, the transaction number and the order of the
   arguments. That is how `transact(1050, …)` and its eight floats were found.
@@ -141,7 +141,7 @@ number is which mode is still unknown, so the raw number is shown.
 A plain colour screen is the right test pattern. The first attempt was judged against the
 launcher and gave the wrong answer for id 2.
 
-The probe is `HY320/.scratch/pq/PqProbe.java`: it reads a range of identifiers, or sets
+The probe is `.scratch/pq/PqProbe.java`: it reads a range of identifiers, or sets
 one, and is built with `javac` then `d8` and run with `app_process`. It writes nothing
 unless told to.
 

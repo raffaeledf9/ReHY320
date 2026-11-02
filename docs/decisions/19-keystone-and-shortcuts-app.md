@@ -22,7 +22,7 @@ Also settled by it: this model has no fan and no battery, which matters because 
 
 ## Built, not yet tested (2026-10-22)
 
-Source in `HY320/app/`, built with `app/build.ps1` into `<backup>\apps\projector-tools-1.0.apk` (16 KB, `com.hy320.tools`, targets Android 11, works from Android 5 up). Built without a build system: the Android tools in the SDK already on this PC, plus the JDK, so there is nothing else to install. The signing key is kept beside the source, so later versions can replace it in place.
+Source in `app/`, built with `app/build.ps1` into `<backup>\apps\projector-tools-1.0.apk` (16 KB, `com.hy320.tools`, targets Android 11, works from Android 5 up). Built without a build system: the Android tools in the SDK already on this PC, plus the JDK, so there is nothing else to install. The signing key is kept beside the source, so later versions can replace it in place.
 
 What it contains:
 - **Keystone correction**, driven by the remote alone: up and down choose a corner, left and right move it, the centre key switches between sideways and up-and-down, the menu key resets everything. It writes the firmware's own eight corner properties and then sends the same broadcast the vendor's settings app sends, so the display code applies it. Movement is capped at 200 either way so the picture cannot be thrown off the panel.
