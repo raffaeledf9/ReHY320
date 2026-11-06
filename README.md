@@ -198,3 +198,7 @@ Two exceptions, neither mine to license:
   renders on this device (AOSP, Apache-2.0).
 
 **No vendor firmware, no vendor APKs and no signing keys are in this repository.**
+
+This project modifies device firmware. It comes with no warranty of any kind,
+and following it may make your device unbootable or void its warranty. See
+[docs/REPRODUCE.md](docs/REPRODUCE.md).
