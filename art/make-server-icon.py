@@ -16,7 +16,7 @@ import pathlib
 from PIL import Image, ImageDraw
 
 HERE = pathlib.Path(__file__).resolve().parent
-ASSETS = HERE.parents[1] / "app" / "assets"
+ASSETS = HERE.parent / "app" / "assets"
 
 CANVAS = (240, 210)
 PLAIN = (70, 100, 234, 255)

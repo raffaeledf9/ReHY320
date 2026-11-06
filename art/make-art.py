@@ -2,6 +2,11 @@
 
     python art/make-art.py
 
+`art/art.html` did not survive the move into this repository, so this does not
+run as it stands: it is kept for the record of how `icon.png`, `banner.png` and
+the HDMI tile were drawn, and what they were drawn from. It also wants Edge at
+the Windows path below.
+
 The two symbols are Bootstrap Icons (MIT): `projector` for the launcher icon and
 the TV banner, `hdmi` for the menu entry. `art.html` paints each one onto a
 canvas at the exact size needed, in the projector's own blues, and leaves the
@@ -12,7 +17,7 @@ server this way.
 import base64, pathlib, re, subprocess, sys
 
 HERE = pathlib.Path(__file__).resolve().parent
-APP = HERE.parents[1] / "app"
+APP = HERE.parent / "app"
 EDGE = pathlib.Path(r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe")
 TARGETS = {
     "icon_mode_hdmi": APP / "assets" / "icon_mode_hdmi.png",

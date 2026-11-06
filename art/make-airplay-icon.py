@@ -3,6 +3,10 @@
     python art/crop-airplay.py <screenshot.png> art/airplay-mark.png
     python art/make-airplay-icon.py
 
+Both steps, in that order: `art/airplay-mark.png` is not in this repository,
+because it is lifted out of someone else's app. Take the screenshot on your own
+projector and the first line makes it.
+
 The mark is the AirPlay app's own, lifted off a screenshot by crop-airplay.py --
 the app ships its icon as a vector inside compiled resources, so a picture of it
 on the projector's screen is the quickest honest source. It arrives as coverage
@@ -19,7 +23,7 @@ import pathlib
 from PIL import Image
 
 HERE = pathlib.Path(__file__).resolve().parent
-ASSETS = HERE.parents[1] / "app" / "assets"
+ASSETS = HERE.parent / "app" / "assets"
 MARK = HERE / "airplay-mark.png"
 
 CANVAS = (240, 210)

@@ -188,8 +188,12 @@ The code, scripts and documents here are MIT licensed — see [LICENSE](LICENSE)
 Two exceptions, neither mine to license:
 
 - `app/assets/icon_mode_*.png` are the projector's own tile icons, taken off the
-  vendor settings app on the device this project is about. `art/make-art.py`
-  draws replacements if you would rather not have them.
+  vendor settings app on the device this project is about. Two of the tiles are
+  not theirs and are drawn from scratch — `art/make-server-icon.py` and
+  `art/make-settings-icon.py` redraw them, and both run as they stand. The other
+  generators in `art/` need sources that are not published, so they are kept as
+  the record of how those pictures were made rather than as something to run;
+  each says so at the top.
 - `keyboard/assets/key_*.png` are cropped from Android's own keyboard as it
   renders on this device (AOSP, Apache-2.0).
 

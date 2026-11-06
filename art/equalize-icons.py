@@ -2,6 +2,11 @@
 
     python art/equalize-icons.py
 
+It reads `art/original-icons/`, which is not in this repository: those are the
+vendor's own icons, lifted off the device, and not mine to redistribute. So this
+runs only for someone who has pulled them from their own unit. It is kept as the
+record of how the tiles were measured and sized.
+
 The vendor's own icons were drawn to no common measure: the keystone glyph is
 61x56, the HDMI one 132x50, and the screen saver one 141x88 on a 390x315 canvas
 where every other icon is 240x210 -- which is why it sat higher than the rest,
@@ -23,7 +28,7 @@ from PIL import Image
 
 HERE = pathlib.Path(__file__).resolve().parent
 ORIGINALS = HERE / "original-icons"
-ASSETS = HERE.parents[1] / "app" / "assets"
+ASSETS = HERE.parent / "app" / "assets"
 
 CANVAS = (240, 210)
 PLAIN = (70, 100, 234, 255)
